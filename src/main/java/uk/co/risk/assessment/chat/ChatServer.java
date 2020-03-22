@@ -8,11 +8,11 @@ import uk.co.risk.assessment.message.Message;
 import uk.co.risk.assessment.message.MessageType;
 import uk.co.risk.assessment.user.User;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.java_websocket.WebSocket;
 import org.java_websocket.handshake.ClientHandshake;
 import org.java_websocket.server.WebSocketServer;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -22,7 +22,7 @@ import java.util.Set;
 
 public class ChatServer extends WebSocketServer {
 
-    private final static Logger logger = LogManager.getLogger(ChatServer.class);
+    private static final Logger logger = LoggerFactory.getLogger(ChatServer.class);
 
     private HashMap<WebSocket, User> users;
 
@@ -138,10 +138,15 @@ public class ChatServer extends WebSocketServer {
         try {
             port = Integer.parseInt(System.getenv("PORT"));
         } catch (NumberFormatException nfe) {
-            port = 9001;
+            port = 3001;
         }
         logger.info("Starting on port: " + port);
         new ChatServer(port).start();
+    }
+
+    @Override
+    public void onStart() {
+        logger.info("Started");
     }
 
 }
