@@ -1,8 +1,9 @@
-package com.jasofalcon.message;
+package uk.co.risk.assessment.message;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import com.jasofalcon.message.MessageType;
-import com.jasofalcon.user.User;
+
+import uk.co.risk.assessment.message.MessageType;
+import uk.co.risk.assessment.user.User;
 
 import java.io.Serializable;
 

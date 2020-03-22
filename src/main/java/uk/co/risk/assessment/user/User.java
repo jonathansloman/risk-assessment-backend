@@ -1,4 +1,4 @@
-package com.jasofalcon.user;
+package uk.co.risk.assessment.user;
 
 import java.io.Serializable;
 import java.util.Objects;

@@ -5,6 +5,7 @@
 plugins {
     id 'java'
     id 'maven-publish'
+    id 'application'
 }
 
 repositories {
@@ -32,4 +33,8 @@ publishing {
 
 tasks.withType(JavaCompile) {
     options.encoding = 'UTF-8'
+}
+
+application {
+	mainClassName = 'uk.co.risk.assessment.chat.ChatServer'
 }

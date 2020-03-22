@@ -1,11 +1,13 @@
-package com.jasofalcon.chat;
+package uk.co.risk.assessment.chat;
 
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.jasofalcon.message.Message;
-import com.jasofalcon.message.MessageType;
-import com.jasofalcon.user.User;
+
+import uk.co.risk.assessment.message.Message;
+import uk.co.risk.assessment.message.MessageType;
+import uk.co.risk.assessment.user.User;
+
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.java_websocket.WebSocket;
@@ -85,6 +87,7 @@ public class ChatServer extends WebSocketServer {
         if (conn != null) {
             conns.remove(conn);
         }
+        logger.error("Error!", ex);
         assert conn != null;
         System.out.println("ERROR from " + conn.getRemoteSocketAddress().getAddress().getHostAddress());
     }
@@ -135,8 +138,9 @@ public class ChatServer extends WebSocketServer {
         try {
             port = Integer.parseInt(System.getenv("PORT"));
         } catch (NumberFormatException nfe) {
-            port = 9000;
+            port = 9001;
         }
+        logger.info("Starting on port: " + port);
         new ChatServer(port).start();
     }
 
