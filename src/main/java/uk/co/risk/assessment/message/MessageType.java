@@ -1,5 +1,5 @@
 package uk.co.risk.assessment.message;
 
-public enum  MessageType {
-    USER_JOINED, TEXT_MESSAGE, USER_LEFT, USER_JOINED_ACK
+public enum MessageType {
+    PLAYER_JOINED, TEXT_MESSAGE, PLAYER_LEFT, PLAYER_JOINED_ACK
 }

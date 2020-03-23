@@ -38,5 +38,5 @@ tasks.withType(JavaCompile) {
 }
 
 application {
-	mainClassName = 'uk.co.risk.assessment.chat.ChatServer'
+	mainClassName = 'uk.co.risk.assessment.PokerServer'
 }

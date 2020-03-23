@@ -2,15 +2,12 @@ package uk.co.risk.assessment.message;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
-import uk.co.risk.assessment.message.MessageType;
-import uk.co.risk.assessment.user.User;
-
-import java.io.Serializable;
+import uk.co.risk.assessment.model.Player;
 
 @JsonIgnoreProperties(ignoreUnknown = true)
-public class Message implements Serializable{
+public class Message {
 
-    private User user;
+    private Player player;
     private MessageType type;
     private String data;
 
@@ -22,12 +19,12 @@ public class Message implements Serializable{
         this.type = type;
     }
 
-    public User getUser() {
-        return user;
+    public Player getPlayer() {
+        return player;
     }
 
-    public void setUser(User user) {
-        this.user = user;
+    public void setPlayer(Player player) {
+        this.player = player;
     }
 
     public void setData(String data) {
