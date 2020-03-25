@@ -1,13 +1,10 @@
 package uk.co.risk.assessment.model;
 
-import java.util.UUID;
-
 /**
  * All public details of a player.
  *
  */
 public class Player {
-    String id;
     String name;
     int chips;
     int buyIns;
@@ -18,21 +15,21 @@ public class Player {
     
     public Player(String name) {
         this.name = name;
-        id = UUID.randomUUID().toString();
     }
     
     public Player() {
         
     }
 
-    public String getId() {
-        return id;
+    public void makeBet(int amount) {
+        bet = amount;
+        chips -= amount;
     }
-
-    public void setId(String id) {
-        this.id = id;
+    
+    public void buyIn() {
+        buyIns++;
+        chips += Table.BUYIN;
     }
-
     public String getName() {
         return name;
     }

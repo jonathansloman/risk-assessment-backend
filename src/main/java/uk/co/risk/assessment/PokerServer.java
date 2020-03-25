@@ -15,21 +15,26 @@ import org.slf4j.LoggerFactory;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import uk.co.risk.assessment.dao.PlayerDAO;
 import uk.co.risk.assessment.message.Message;
 import uk.co.risk.assessment.message.MessageType;
 import uk.co.risk.assessment.model.Game;
 import uk.co.risk.assessment.model.Player;
+import uk.co.risk.assessment.model.Table;
 
 public class PokerServer extends WebSocketServer {
     
-    private static final Logger logger = LoggerFactory.getLogger(PokerServer.class);
+    private static final Logger LOG = LoggerFactory.getLogger(PokerServer.class);
     
-    private HashMap<WebSocket, Player> players;
+    private HashMap<WebSocket, String> players;
+    PlayerDAO playerDAO = new PlayerDAO();
     
     /* let's just have a single game for now */
     Game game;
     
     private Set<WebSocket> conns;
+    
+    ObjectMapper mapper = new ObjectMapper();
     
     private PokerServer(int port) {
         super(new InetSocketAddress(port));
@@ -42,7 +47,7 @@ public class PokerServer extends WebSocketServer {
     public void onOpen(WebSocket webSocket, ClientHandshake clientHandshake) {
         conns.add(webSocket);
         
-        logger.info("Connection established from: {}, {}",
+        LOG.info("Connection established from: {}, {}",
                 webSocket.getRemoteSocketAddress().getHostString(),
                 webSocket.getRemoteSocketAddress().getAddress().getHostAddress());
     }
@@ -54,34 +59,83 @@ public class PokerServer extends WebSocketServer {
         try {
             removePlayer(conn);
         } catch (JsonProcessingException e) {
-            logger.warn("Error removing user: ", e);
+            LOG.warn("Error removing user: ", e);
         }
         
-        logger.info("Connection closed to: {}, {} ", conn.getRemoteSocketAddress().getHostString(),
+        LOG.info("Connection closed to: {}, {} ", conn.getRemoteSocketAddress().getHostString(),
                 conn.getRemoteSocketAddress().getAddress().getHostAddress());
     }
     
     @Override
     public void onMessage(WebSocket conn, String message) {
-        ObjectMapper mapper = new ObjectMapper();
         try {
             Message msg = mapper.readValue(message, Message.class);
-            
             switch (msg.getType()) {
                 case PLAYER_JOINED:
-                    addPlayer(new Player(msg.getPlayer().getName()), conn);
+                    LOG.info("New player login: {}", msg.getNewPlayer().getName());
+                    Player player = playerDAO.newPlayer(msg.getNewPlayer());
+                    if (player == null) {
+                        LOG.warn("Failed to join new player, bad password?");
+                        Message m = new Message(MessageType.PLAYER_BADPASSWORD);
+                        sendMessage(m, conn);
+                        conn.close();
+                    } else {
+                        /* check for existing players with the same name and disconnect them */
+                        for (WebSocket otherCon : conns) {
+                            String playerName = players.get(otherCon);
+                            if (playerName != null && playerName.equals(player.getName())) {
+                                Message m = new Message(MessageType.PLAYER_OVERRIDDEN);
+                                sendMessage(m, otherCon);
+                                otherCon.close();
+                            }
+                        }
+                        addPlayer(player.getName(), conn);
+                    }
                     break;
                 case PLAYER_LEFT:
+                    LOG.info("Player left {}", players.get(conn));
                     removePlayer(conn);
                     break;
                 case TEXT_MESSAGE:
-                    broadcastMessage(msg);
+                    LOG.info("Command message: {} from {}", msg, players.get(conn));
+                    handleCommand(players.get(conn), msg.getData());
+                    Message newMessage = new Message(MessageType.TEXT_MESSAGE);
+                    newMessage.setData(msg.getData());
+                    newMessage.setTable(game.getTable());
+                    newMessage.setPlayerName(players.get(conn));
+                    broadcastMessage(newMessage);
+                    break;
+                default:
+                    LOG.warn("Invalid message received: {}", message);
             }
             
-            logger.info("Message from player: {}, type: {}, text: {}", msg.getPlayer(), msg.getType(), msg.getData());
+
         } catch (IOException e) {
-            logger.error("Wrong message format.", e);
+            LOG.error("Wrong message format.", e);
             // return error message to user
+        }
+    }
+    
+    private void handleCommand(String playerName, String command) {
+        if ("sit".equals(command)) {
+            if (game.getTable().countPlayers() < Table.MAX_PLAYERS && !game.getTable().isSeated(playerName)) {
+                Player player = playerDAO.getPlayer(playerName);
+                if (player == null) {
+                    LOG.warn("Couldn't find player {} - panic!", playerName);
+                }
+                game.getTable().sitPlayer(player);
+            } else {
+                LOG.warn("Could not seat player {} - either no space or already seated.", playerName);
+            }
+        }
+        if ("deal".equals(command)) {
+            if (game.getTable().countPlayers() < 2) {
+                LOG.warn("Could not deal, not enough players");
+            } else if (!game.getTable().isDealer(playerName)) {
+                LOG.warn("Could not deal, not dealer");
+            } else {
+                game.deal();
+            }
         }
     }
     
@@ -89,28 +143,39 @@ public class PokerServer extends WebSocketServer {
     public void onError(WebSocket conn, Exception ex) {
         
         if (conn != null) {
-            logger.error("Error on connection {}", conn.getRemoteSocketAddress().getAddress().getHostAddress(), ex);
+            LOG.error("Error on connection {}",
+                    conn.getRemoteSocketAddress().getAddress().getHostAddress(), ex);
             conns.remove(conn);
         } else {
-            logger.error("Error with null connection", ex);
+            LOG.error("Error with null connection", ex);
         }
     }
     
     private void broadcastMessage(Message msg) {
-        ObjectMapper mapper = new ObjectMapper();
         try {
             String messageJson = mapper.writeValueAsString(msg);
-            for (WebSocket sock : conns) {
-                sock.send(messageJson);
+            LOG.info("Sending broadcast message: {}", messageJson);
+            for (WebSocket con : conns) {
+                con.send(messageJson);
             }
         } catch (JsonProcessingException e) {
-            logger.error("Cannot convert message to json.");
+            LOG.error("Cannot convert message to json.");
         }
     }
     
-    private void addPlayer(Player player, WebSocket conn) throws JsonProcessingException {
-        players.put(conn, player);
-        acknowledgePlayerJoined(player, conn);
+    private void sendMessage(Message msg, WebSocket con) {
+        try {
+            String messageJson = mapper.writeValueAsString(msg);
+            LOG.info("Sending message to user: {}, {}", players.get(con), messageJson);
+            con.send(messageJson);
+        } catch (JsonProcessingException e) {
+            LOG.error("Cannot convert message to json.");
+        }
+    }
+    
+    private void addPlayer(String playerName, WebSocket conn) throws JsonProcessingException {
+        players.put(conn, playerName);
+        acknowledgePlayerJoined(playerDAO.getPlayer(playerName), conn);
         broadcastUserActivityMessage(MessageType.PLAYER_JOINED);
     }
     
@@ -119,22 +184,18 @@ public class PokerServer extends WebSocketServer {
         broadcastUserActivityMessage(MessageType.PLAYER_LEFT);
     }
     
-    private void acknowledgePlayerJoined(Player player, WebSocket conn) throws JsonProcessingException {
-        Message message = new Message();
-        message.setType(MessageType.PLAYER_JOINED_ACK);
-        message.setPlayer(player);
-        conn.send(new ObjectMapper().writeValueAsString(message));
+    private void acknowledgePlayerJoined(Player player, WebSocket conn)
+            throws JsonProcessingException {
+        Message message = new Message(MessageType.PLAYER_JOINED_ACK);
+        message.setPlayerName(player.getName());
+        conn.send(mapper.writeValueAsString(message));
     }
     
     private void broadcastUserActivityMessage(MessageType messageType)
             throws JsonProcessingException {
         
-        Message newMessage = new Message();
-        
-        ObjectMapper mapper = new ObjectMapper();
-        String data = mapper.writeValueAsString(players.values());
-        newMessage.setData(data);
-        newMessage.setType(messageType);
+        Message newMessage = new Message(messageType);
+        newMessage.setTable(game.getTable());
         broadcastMessage(newMessage);
     }
     
@@ -145,13 +206,13 @@ public class PokerServer extends WebSocketServer {
         } catch (NumberFormatException nfe) {
             port = 3001;
         }
-        logger.info("Starting on port: " + port);
+        LOG.info("Starting on port: " + port);
         new PokerServer(port).start();
     }
     
     @Override
     public void onStart() {
-        logger.info("Started");
+        LOG.info("Started");
     }
     
 }

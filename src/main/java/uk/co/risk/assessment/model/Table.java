@@ -9,6 +9,7 @@ import java.util.List;
  */
 public class Table { 
     public final static int MAX_PLAYERS = 10;
+    public final static int BUYIN = 500;
     
     Player players[] = new Player[MAX_PLAYERS];
     int dealer = -1;
@@ -16,7 +17,6 @@ public class Table {
     int currentBet;
     int bigBlind = 10;
     int smallBlind = 5;
-    int buyIn = 500;
     int mainPot;
     Card[] cards = new Card[5];
     TableState state;
@@ -26,7 +26,7 @@ public class Table {
         return players;
     }
 
-    private int countPlayers() {
+    public int countPlayers() {
         int result = 0;
         for (int i = 0; i < MAX_PLAYERS; i++) {
             if (players[i] != null) {
@@ -41,12 +41,59 @@ public class Table {
         state = TableState.PREDEAL;
         mainPot = leftover;
         sidePots = new ArrayList<>();
+        int smallBlindIndex = findNextPlayer(dealer);
+        int bigBlindIndex = findNextPlayer(smallBlindIndex);
+        makeBet(smallBlindIndex, smallBlind);
+        makeBet(bigBlindIndex, bigBlind);
+        mainPot += bigBlind + smallBlind;
         if (countPlayers() > 1) {
             do {
                 dealer++;
             } while (players[dealer] == null);
+        }   
+    }
+    
+    private void makeBet(int player, int amount) {
+        players[player].makeBet(amount);
+        mainPot += amount;
+    }
+    
+    private int findNextPlayer(int start) {
+        int index = start + 1;
+        while (players[index] == null) {
+            index = (index + 1) % MAX_PLAYERS;
         }
-        
+        return index;
+    }
+    
+    /* sit player at first available place */
+    public void sitPlayer(Player p) {
+        for (int i = 0; i < MAX_PLAYERS; i++) {
+            if (players[i] == null) {
+                players[i] = p;
+                p.buyIn();
+                if (dealer < 0) {
+                    dealer = i;
+                }
+                break;
+            }
+        }
+    }
+    
+    public boolean isSeated(String playerName) {
+        for (int i = 0; i < MAX_PLAYERS; i++) {
+            if (players[i] != null && players[i].getName().equals(playerName)) {
+                return true;
+            }
+        }
+        return false;
+    }
+    
+    public boolean isDealer(String playerName) {
+        if (dealer < 0 || players[dealer] == null) {
+            return false;
+        }
+        return playerName.equals(players[dealer].getName());
     }
     
     // below here getters/setters
@@ -147,20 +194,6 @@ public class Table {
     public void setSidePots(List<SidePot> sidePots) {
         this.sidePots = sidePots;
     }
-
-
-
-    public int[] getDeck() {
-        return deck;
-    }
-
-
-
-    public void setDeck(int[] deck) {
-        this.deck = deck;
-    }
-
-
 
     class SidePot {
         int pot;
