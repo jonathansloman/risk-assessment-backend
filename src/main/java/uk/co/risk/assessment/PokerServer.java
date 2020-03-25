@@ -17,8 +17,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 
 import uk.co.risk.assessment.message.Message;
 import uk.co.risk.assessment.message.MessageType;
+import uk.co.risk.assessment.model.Game;
 import uk.co.risk.assessment.model.Player;
-import uk.co.risk.assessment.model.Table;
 
 public class PokerServer extends WebSocketServer {
     
@@ -26,8 +26,8 @@ public class PokerServer extends WebSocketServer {
     
     private HashMap<WebSocket, Player> players;
     
-    /* let's just have a single table for now */
-    Table table;
+    /* let's just have a single game for now */
+    Game game;
     
     private Set<WebSocket> conns;
     
@@ -35,6 +35,7 @@ public class PokerServer extends WebSocketServer {
         super(new InetSocketAddress(port));
         conns = new HashSet<>();
         players = new HashMap<>();
+        game = new Game();
     }
     
     @Override

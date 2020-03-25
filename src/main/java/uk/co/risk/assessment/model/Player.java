@@ -1,9 +1,12 @@
 package uk.co.risk.assessment.model;
 
-import java.io.Serializable;
 import java.util.UUID;
 
-public class Player implements Serializable {
+/**
+ * All public details of a player.
+ *
+ */
+public class Player {
     String id;
     String name;
     int chips;

@@ -3,10 +3,14 @@ package uk.co.risk.assessment.model;
 import java.util.ArrayList;
 import java.util.List;
 
-public class Table {
+/**
+ * All public details of a table.
+ *
+ */
+public class Table { 
     public final static int MAX_PLAYERS = 10;
-    Player players[] = new Player[MAX_PLAYERS];
     
+    Player players[] = new Player[MAX_PLAYERS];
     int dealer = -1;
     int nextToBet = -1;
     int currentBet;
@@ -14,20 +18,42 @@ public class Table {
     int smallBlind = 5;
     int buyIn = 500;
     int mainPot;
+    Card[] cards = new Card[5];
+    TableState state;
     List<SidePot> sidePots = new ArrayList<>();
-    int[] deck = new int[52];
     
     public Player[] getPlayers() {
         return players;
     }
 
+    private int countPlayers() {
+        int result = 0;
+        for (int i = 0; i < MAX_PLAYERS; i++) {
+            if (players[i] != null) {
+                result++;
+            }
+        }
+        return result;
+    }
 
-
+    public void nextHand(int leftover) {
+        cards = new Card[5];
+        state = TableState.PREDEAL;
+        mainPot = leftover;
+        sidePots = new ArrayList<>();
+        if (countPlayers() > 1) {
+            do {
+                dealer++;
+            } while (players[dealer] == null);
+        }
+        
+    }
+    
+    // below here getters/setters
+    
     public void setPlayers(Player[] players) {
         this.players = players;
     }
-
-
 
     public int getDealer() {
         return dealer;
@@ -62,7 +88,6 @@ public class Table {
     public void setCurrentBet(int currentBet) {
         this.currentBet = currentBet;
     }
-
 
 
     public int getBigBlind() {
