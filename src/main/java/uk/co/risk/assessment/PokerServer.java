@@ -99,17 +99,12 @@ public class PokerServer extends WebSocketServer {
                 case TEXT_MESSAGE:
                     LOG.info("Command message: {} from {}", msg, players.get(conn));
                     handleCommand(players.get(conn), msg.getData());
-                    Message newMessage = new Message(MessageType.TEXT_MESSAGE);
-                    newMessage.setData(msg.getData());
-                    newMessage.setTable(game.getTable());
-                    newMessage.setPlayerName(players.get(conn));
-                    broadcastMessage(newMessage);
+                    updateGameState(players.get(conn), msg.getData());
                     break;
                 default:
                     LOG.warn("Invalid message received: {}", message);
             }
             
-
         } catch (IOException e) {
             LOG.error("Wrong message format.", e);
             // return error message to user
@@ -118,18 +113,20 @@ public class PokerServer extends WebSocketServer {
     
     private void handleCommand(String playerName, String command) {
         if ("sit".equals(command)) {
-            if (game.getTable().countPlayers() < Table.MAX_PLAYERS && !game.getTable().isSeated(playerName)) {
+            if (game.getTable().countPlayers() < Table.MAX_PLAYERS
+                    && !game.getTable().isSeated(playerName)) {
                 Player player = playerDAO.getPlayer(playerName);
                 if (player == null) {
                     LOG.warn("Couldn't find player {} - panic!", playerName);
                 }
                 game.getTable().sitPlayer(player);
             } else {
-                LOG.warn("Could not seat player {} - either no space or already seated.", playerName);
+                LOG.warn("Could not seat player {} - either no space or already seated.",
+                        playerName);
             }
         }
         if ("deal".equals(command)) {
-            if (game.getTable().countPlayers() < 2) {
+            if (game.getTable().countActivePlayers() < 2) {
                 LOG.warn("Could not deal, not enough players");
             } else if (!game.getTable().isDealer(playerName)) {
                 LOG.warn("Could not deal, not dealer");
@@ -151,6 +148,26 @@ public class PokerServer extends WebSocketServer {
         }
     }
     
+    private void updateGameState(String playerName, String message) {
+        Message newMessage = new Message(MessageType.TEXT_MESSAGE);
+        newMessage.setData(message);
+        newMessage.setTable(game.getTable());
+        newMessage.setPlayerName(playerName);
+        for (WebSocket con : conns) {
+            String thisPlayer = players.get(con);
+            if (thisPlayer != null) {
+                newMessage.setCards(game.getCardsFor(thisPlayer));
+                String messageJson;
+                try {
+                    messageJson = mapper.writeValueAsString(newMessage);
+                    con.send(messageJson);
+                } catch (JsonProcessingException e) {
+                    LOG.error("Cannot convert message to json.", e);
+                }
+            }
+        }
+    }
+    
     private void broadcastMessage(Message msg) {
         try {
             String messageJson = mapper.writeValueAsString(msg);
@@ -159,7 +176,6 @@ public class PokerServer extends WebSocketServer {
                 con.send(messageJson);
             }
         } catch (JsonProcessingException e) {
-            LOG.error("Cannot convert message to json.");
         }
     }
     
@@ -176,12 +192,13 @@ public class PokerServer extends WebSocketServer {
     private void addPlayer(String playerName, WebSocket conn) throws JsonProcessingException {
         players.put(conn, playerName);
         acknowledgePlayerJoined(playerDAO.getPlayer(playerName), conn);
-        broadcastUserActivityMessage(MessageType.PLAYER_JOINED);
+        updateGameState(playerName, "Joined game");
     }
     
     private void removePlayer(WebSocket conn) throws JsonProcessingException {
+        String playerName = players.get(conn);
         players.remove(conn);
-        broadcastUserActivityMessage(MessageType.PLAYER_LEFT);
+        updateGameState(playerName, "Left game");
     }
     
     private void acknowledgePlayerJoined(Player player, WebSocket conn)
@@ -189,14 +206,6 @@ public class PokerServer extends WebSocketServer {
         Message message = new Message(MessageType.PLAYER_JOINED_ACK);
         message.setPlayerName(player.getName());
         conn.send(mapper.writeValueAsString(message));
-    }
-    
-    private void broadcastUserActivityMessage(MessageType messageType)
-            throws JsonProcessingException {
-        
-        Message newMessage = new Message(messageType);
-        newMessage.setTable(game.getTable());
-        broadcastMessage(newMessage);
     }
     
     public static void main(String[] args) {

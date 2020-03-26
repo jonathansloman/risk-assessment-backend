@@ -2,6 +2,7 @@ package uk.co.risk.assessment.message;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
+import uk.co.risk.assessment.model.Card;
 import uk.co.risk.assessment.model.Table;
 
 @JsonIgnoreProperties(ignoreUnknown = true)
@@ -12,8 +13,10 @@ public class Message {
     private NewPlayerMessage newPlayer;
     private MessageType type;
     private String data;
-    // the name of the player this message is going to. Might only be used for PLAYER_ACK message?
+    // the name of the player this message is going to (for Ack)/has come from (for updates).
     private String playerName;
+    // this player's cards
+    private Card[] cards;
 
     public Message() {
     }
@@ -60,6 +63,14 @@ public class Message {
 
     public void setPlayerName(String playerName) {
         this.playerName = playerName;
+    }
+
+    public Card[] getCards() {
+        return cards;
+    }
+
+    public void setCards(Card[] cards) {
+        this.cards = cards;
     }
     
     

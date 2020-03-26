@@ -4,11 +4,16 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Random;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 /**
  * Encapsulating class for whole game including private information.
  *
  */
 public class Game {
+    private static final Logger LOG = LoggerFactory.getLogger(Game.class);
+
     Table table;
     List<Card> deck;
     Card[][] hands = new Card[Table.MAX_PLAYERS][2];
@@ -42,8 +47,18 @@ public class Game {
             if (table.getPlayers()[i] != null) {
                 hands[i][0] = dealCard();
                 hands[i][1] = dealCard();
+                LOG.info("Dealt hand: {}, {} to player {}", hands[i][0], hands[i][1], table.getPlayers()[i].getName());
             }
         }
+    }
+    
+    public Card[] getCardsFor(String thisPlayer) {
+        int location = table.locatePlayer(thisPlayer);
+        LOG.info("Got location {} for player {}", location, thisPlayer);
+        if (location != -1) {
+            return hands[location];
+        }
+        return null;
     }
     
     public Table getTable() {

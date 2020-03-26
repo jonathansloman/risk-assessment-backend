@@ -35,6 +35,17 @@ public class Table {
         }
         return result;
     }
+    
+    public int countActivePlayers() {
+        int result = 0;
+        for (int i = 0; i < MAX_PLAYERS; i++) {
+            Player p = players[i];
+            if (p != null && !p.isPaused() && p.getChips() >= bigBlind) {
+                result++;
+            }
+        }
+        return result;
+    }
 
     public void nextHand(int leftover) {
         cards = new Card[5];
@@ -46,11 +57,26 @@ public class Table {
         makeBet(smallBlindIndex, smallBlind);
         makeBet(bigBlindIndex, bigBlind);
         mainPot += bigBlind + smallBlind;
+ 
+    }
+    
+    public void nextDealer() {
         if (countPlayers() > 1) {
             do {
                 dealer++;
-            } while (players[dealer] == null);
+            } while (players[dealer] == null || players[dealer].isPaused());
         }   
+    }
+    
+    public int locatePlayer(String playerName) {
+        for (int i = 0; i < MAX_PLAYERS; i++) {
+            if (players[i] != null) {
+                if (playerName.equals(players[i].getName())) {
+                    return i;
+                }
+            }
+        } 
+        return -1;
     }
     
     private void makeBet(int player, int amount) {
@@ -158,20 +184,6 @@ public class Table {
     public void setSmallBlind(int smallBlind) {
         this.smallBlind = smallBlind;
     }
-
-
-
-    public int getBuyIn() {
-        return buyIn;
-    }
-
-
-
-    public void setBuyIn(int buyIn) {
-        this.buyIn = buyIn;
-    }
-
-
 
     public int getMainPot() {
         return mainPot;
