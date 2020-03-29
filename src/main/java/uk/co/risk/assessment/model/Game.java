@@ -118,17 +118,27 @@ public class Game {
                 return playerName + " tried to bet out of turn!";
             }
             int amount = Integer.parseInt(command.substring(6));
-            if (amount < getTable().getMinimumRaise()) {
+            Player p = getTable().getPlayers()[getTable().getNextToBet()];
+            // allow for all in raise even if under raise limit.
+            if (amount < getTable().getMinimumRaise() && amount != p.getChips() - p.getBet()) {
                 return playerName + " tried to raise too little - minimum is: "
                         + getTable().getMinimumRaise();
             }
+            if (p.getChips() - p.getBet() < amount) {
+                return playerName + " tried to raise by more chips than they have!";
+            }
             // TODO handle affordability/split pots
-            String result = getTable().getPlayers()[getTable().getNextToBet()]
-                    .raise(getTable().getCurrentBet(), amount);
+            String result = p.raise(getTable().getCurrentBet(), amount);
             getTable().clearCheckedCalled(playerName);
             getTable().setCurrentBet(amount);
             return checkNextBetter(playerName, result);
             
+        } else if ("fold".equals(command)) {
+            if (!getTable().isNextToBet(playerName)) {
+                return playerName + " tried to fold out of turn!";
+            }
+            getTable().foldPlayer();
+            return checkNextBetter(playerName, " folded.");
         }
         // just echo command back if we haven't dealt with it.
         return command;
@@ -139,10 +149,14 @@ public class Game {
     }
     
     private String checkNextBetter(String playerName, String actionResult) {
-        boolean finishedRound = getTable().nextBetter();
-        if (!finishedRound) {
-            return playerName + actionResult + getNextToBet();
+        int winner = getTable().checkAllFolded();
+        if (winner >= 0) {
+           getTable().endBettingRound();
+           String finishText = getTable().finishHand(winner);
+           getTable().setState(TableState.PREDEAL);
+           return playerName + actionResult + " No other players left." + finishText;
         } else {
+            LOG.info("Round of betting finished, resolve next table state");
             String finishText = null;
             getTable().endBettingRound();
             switch (getTable().getState()) {
@@ -161,14 +175,14 @@ public class Game {
                     getTable().getCards()[4] = dealCard();
                     break;
                 case RIVER:
-                    finishText = getTable().finishHand();
+                    finishText = getTable().finishHand(getTable().getWinner());
                     getTable().setState(TableState.PREDEAL);
                     break;
                 default:
                     LOG.warn("This should never happen, bad table state!");
                     break;
             }
-            return playerName + actionResult + " Betting round finished." + finishText == null ? getNextToBet() : finishText;
+            return playerName + actionResult + " Betting round finished." + (finishText == null ? getNextToBet() : finishText);
             
         }
     }

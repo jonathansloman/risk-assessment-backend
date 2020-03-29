@@ -47,6 +47,26 @@ public class Table {
         }
         return result;
     }
+    
+    // returns the id of the only remaining non-foldedplayer, or -1 if 2 or more people sitll in
+    public int checkAllFolded() {
+        int result = -1;
+        for (int i = 0; i < MAX_PLAYERS; i++) {
+            Player p = players[i];
+            if (p != null && !p.isPaused() && !p.isFolded()) {
+                if (result == -1) {
+                    result = i;
+                } else {
+                    return -1;
+                }
+            }
+        }
+        return result;
+    }
+    
+    public int getWinner() {
+        return dealer; // HACK
+    }
 
     public void nextHand(int leftover) {
         cards = new Card[5];
@@ -86,7 +106,7 @@ public class Table {
     public void nextDealer() {
         if (countPlayers() > 1) {
             do {
-                dealer++;
+                dealer = (dealer + 1) % MAX_PLAYERS;
             } while (players[dealer] == null || players[dealer].isPaused());
         }   
     }
@@ -180,8 +200,14 @@ public class Table {
         nextToBet = findNextPlayer(dealer);
     }
     
-    public String finishHand() {
-        int winner = dealer; // TODO HACK for now
+    public void foldPlayer() {
+        Player p = players[nextToBet];
+        mainPot += p.getBet();
+        p.setBet(0);
+        p.setFolded(true);
+    }
+    
+    public String finishHand(int winner) {
         players[winner].addChips(mainPot);
         nextDealer();
         return players[winner].getName() + " won " + mainPot + " chips. Dealer is now " + players[dealer].getName();
