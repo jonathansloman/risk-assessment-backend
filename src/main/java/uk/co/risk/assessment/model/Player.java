@@ -8,10 +8,10 @@ public class Player {
     String name;
     int chips;
     int buyIns;
-    int bet;
-    boolean checkedCalled;
-    boolean folded;
-    boolean paused;
+    int bet = 0;;
+    boolean checkedCalled = false;
+    boolean folded = false;
+    boolean paused = false;
     
     public Player(String name) {
         this.name = name;
@@ -20,16 +20,50 @@ public class Player {
     public Player() {
         
     }
-
+    
     public void makeBet(int amount) {
-        bet = amount;
+        bet += amount;
         chips -= amount;
+    }
+    
+    public void addChips(int amount) {
+        chips += amount;
     }
     
     public void buyIn() {
         buyIns++;
         chips += Table.BUYIN;
     }
+    
+    public String call(int currentBet) {
+        if (bet == currentBet) {
+            check();
+            return " already bet " + currentBet + ", assuming check.";
+        } else {
+            int extra = currentBet - bet;
+            makeBet(extra);
+            checkedCalled = true;
+            return " put in " + extra + " to call.";
+        }
+    }
+    
+    public void check() {
+        checkedCalled = true;
+    }
+    
+    public String raise(int currentBet, int raise) {
+        int extraTable = raise - currentBet;
+        int extraPlayer = raise - bet;
+        makeBet(extraPlayer);
+        checkedCalled = true;
+        return " put in " + extraPlayer + " to raise by " + extraTable + " to " + raise;
+    }
+    
+    public void resetForNextHand() {
+        checkedCalled = false;
+        folded = false;
+    }
+    
     public String getName() {
         return name;
     }

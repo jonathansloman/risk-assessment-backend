@@ -20,7 +20,6 @@ import uk.co.risk.assessment.message.Message;
 import uk.co.risk.assessment.message.MessageType;
 import uk.co.risk.assessment.model.Game;
 import uk.co.risk.assessment.model.Player;
-import uk.co.risk.assessment.model.Table;
 
 public class PokerServer extends WebSocketServer {
     
@@ -40,7 +39,7 @@ public class PokerServer extends WebSocketServer {
         super(new InetSocketAddress(port));
         conns = new HashSet<>();
         players = new HashMap<>();
-        game = new Game();
+        game = new Game(playerDAO);
     }
     
     @Override
@@ -98,7 +97,7 @@ public class PokerServer extends WebSocketServer {
                     break;
                 case TEXT_MESSAGE:
                     LOG.info("Command message: {} from {}", msg, players.get(conn));
-                    handleCommand(players.get(conn), msg.getData());
+                    msg.setData(game.handleCommand(players.get(conn), msg.getData()));
                     updateGameState(players.get(conn), msg.getData());
                     break;
                 default:
@@ -111,30 +110,7 @@ public class PokerServer extends WebSocketServer {
         }
     }
     
-    private void handleCommand(String playerName, String command) {
-        if ("sit".equals(command)) {
-            if (game.getTable().countPlayers() < Table.MAX_PLAYERS
-                    && !game.getTable().isSeated(playerName)) {
-                Player player = playerDAO.getPlayer(playerName);
-                if (player == null) {
-                    LOG.warn("Couldn't find player {} - panic!", playerName);
-                }
-                game.getTable().sitPlayer(player);
-            } else {
-                LOG.warn("Could not seat player {} - either no space or already seated.",
-                        playerName);
-            }
-        }
-        if ("deal".equals(command)) {
-            if (game.getTable().countActivePlayers() < 2) {
-                LOG.warn("Could not deal, not enough players");
-            } else if (!game.getTable().isDealer(playerName)) {
-                LOG.warn("Could not deal, not dealer");
-            } else {
-                game.deal();
-            }
-        }
-    }
+
     
     @Override
     public void onError(WebSocket conn, Exception ex) {
@@ -165,17 +141,6 @@ public class PokerServer extends WebSocketServer {
                     LOG.error("Cannot convert message to json.", e);
                 }
             }
-        }
-    }
-    
-    private void broadcastMessage(Message msg) {
-        try {
-            String messageJson = mapper.writeValueAsString(msg);
-            LOG.info("Sending broadcast message: {}", messageJson);
-            for (WebSocket con : conns) {
-                con.send(messageJson);
-            }
-        } catch (JsonProcessingException e) {
         }
     }
     

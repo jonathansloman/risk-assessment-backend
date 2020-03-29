@@ -15,11 +15,12 @@ public class Table {
     int dealer = -1;
     int nextToBet = -1;
     int currentBet;
+    int lastRaise;
     int bigBlind = 10;
     int smallBlind = 5;
     int mainPot;
     Card[] cards = new Card[5];
-    TableState state;
+    TableState state = TableState.PREDEAL;
     List<SidePot> sidePots = new ArrayList<>();
     
     public Player[] getPlayers() {
@@ -49,15 +50,37 @@ public class Table {
 
     public void nextHand(int leftover) {
         cards = new Card[5];
-        state = TableState.PREDEAL;
+        state = TableState.PREFLOP;
         mainPot = leftover;
         sidePots = new ArrayList<>();
+        for (int i = 0; i < MAX_PLAYERS; i++) {
+            Player p = players[i];
+            if (p != null && !p.isPaused()) {
+                if (p.getChips() < bigBlind) {
+                    p.setPaused(true);
+                } else {
+                    p.resetForNextHand();
+                }
+            }
+        }
         int smallBlindIndex = findNextPlayer(dealer);
         int bigBlindIndex = findNextPlayer(smallBlindIndex);
+        nextToBet = findNextPlayer(bigBlindIndex);
         makeBet(smallBlindIndex, smallBlind);
         makeBet(bigBlindIndex, bigBlind);
-        mainPot += bigBlind + smallBlind;
- 
+        
+        currentBet = bigBlind;
+        lastRaise = bigBlind;
+    }
+    
+    public boolean nextBetter() {
+        int next = findNextPlayer(nextToBet);
+        if (next == nextToBet || players[next].isCheckedCalled()) {
+            return true;
+        } else {
+            nextToBet = next;
+            return false;
+        }
     }
     
     public void nextDealer() {
@@ -81,12 +104,11 @@ public class Table {
     
     private void makeBet(int player, int amount) {
         players[player].makeBet(amount);
-        mainPot += amount;
     }
     
     private int findNextPlayer(int start) {
         int index = start + 1;
-        while (players[index] == null) {
+        while (start != index && players[index] == null || players[index].isPaused() || players[index].isFolded()) {
             index = (index + 1) % MAX_PLAYERS;
         }
         return index;
@@ -122,6 +144,48 @@ public class Table {
         return playerName.equals(players[dealer].getName());
     }
     
+    public boolean isNextToBet(String playerName) {
+        if (nextToBet < 0 || players[nextToBet] == null) {
+            return false;
+        }
+        return playerName.equals(players[nextToBet].getName());
+    }
+    
+    public int getMinimumRaise() {
+        return currentBet + lastRaise;
+    }
+    
+    public void clearCheckedCalled(String playerName) {
+        for (int i = 0; i < MAX_PLAYERS; i++) {
+            Player p = players[i];
+            if (p != null && !p.isPaused() && !p.isFolded() && !playerName.equals(p.getName())) {
+               p.setCheckedCalled(false);
+            }
+        }     
+    }
+    
+    public void endBettingRound() {
+        for (int i = 0; i < MAX_PLAYERS; i++) {
+            Player p = players[i];
+            if (p != null && !p.isPaused() && !p.isFolded()) {
+               p.setCheckedCalled(false);
+               mainPot += p.getBet();
+               // TODO handle sidepots
+
+               p.setBet(0);
+            }
+        }
+        currentBet = 0;
+        lastRaise = 10; 
+        nextToBet = findNextPlayer(dealer);
+    }
+    
+    public String finishHand() {
+        int winner = dealer; // TODO HACK for now
+        players[winner].addChips(mainPot);
+        nextDealer();
+        return players[winner].getName() + " won " + mainPot + " chips. Dealer is now " + players[dealer].getName();
+    }
     // below here getters/setters
     
     public void setPlayers(Player[] players) {
@@ -206,6 +270,34 @@ public class Table {
     public void setSidePots(List<SidePot> sidePots) {
         this.sidePots = sidePots;
     }
+    
+    
+
+    public int getLastRaise() {
+        return lastRaise;
+    }
+
+    public void setLastRaise(int lastRaise) {
+        this.lastRaise = lastRaise;
+    }
+
+    public Card[] getCards() {
+        return cards;
+    }
+
+    public void setCards(Card[] cards) {
+        this.cards = cards;
+    }
+
+    public TableState getState() {
+        return state;
+    }
+
+    public void setState(TableState state) {
+        this.state = state;
+    }
+
+
 
     class SidePot {
         int pot;
