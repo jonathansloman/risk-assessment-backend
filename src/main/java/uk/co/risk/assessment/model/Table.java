@@ -64,9 +64,7 @@ public class Table {
         return result;
     }
     
-    public int getWinner() {
-        return dealer; // HACK
-    }
+
 
     public void nextHand(int leftover) {
         cards = new Card[5];
@@ -322,8 +320,6 @@ public class Table {
     public void setState(TableState state) {
         this.state = state;
     }
-
-
 
     class SidePot {
         int pot;

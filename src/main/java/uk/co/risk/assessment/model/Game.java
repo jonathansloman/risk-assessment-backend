@@ -18,7 +18,7 @@ public class Game {
     
     Table table;
     List<Card> deck;
-    Card[][] hands = new Card[Table.MAX_PLAYERS][2];
+    Card[][] playerCards = new Card[Table.MAX_PLAYERS][2];
     Random random;
     
     PlayerDAO playerDAO;
@@ -50,9 +50,9 @@ public class Game {
         table.nextHand(0);
         for (int i = 0; i < Table.MAX_PLAYERS; i++) {
             if (table.getPlayers()[i] != null) {
-                hands[i][0] = dealCard();
-                hands[i][1] = dealCard();
-                LOG.info("Dealt hand: {}, {} to player {}", hands[i][0], hands[i][1],
+                playerCards[i][0] = dealCard();
+                playerCards[i][1] = dealCard();
+                LOG.info("Dealt hand: {}, {} to player {}", playerCards[i][0], playerCards[i][1],
                         table.getPlayers()[i].getName());
             }
         }
@@ -62,7 +62,7 @@ public class Game {
         int location = table.locatePlayer(thisPlayer);
         LOG.info("Got location {} for player {}", location, thisPlayer);
         if (location != -1) {
-            return hands[location];
+            return playerCards[location];
         }
         return null;
     }
@@ -175,7 +175,7 @@ public class Game {
                     getTable().getCards()[4] = dealCard();
                     break;
                 case RIVER:
-                    finishText = getTable().finishHand(getTable().getWinner());
+                    finishText = getTable().finishHand(getWinner());
                     getTable().setState(TableState.PREDEAL);
                     break;
                 default:
@@ -185,6 +185,26 @@ public class Game {
             return playerName + actionResult + " Betting round finished." + (finishText == null ? getNextToBet() : finishText);
             
         }
+    }
+    
+    public int getWinner() {
+        Hand[] hands = new Hand[Table.MAX_PLAYERS];
+        int winner = -1;
+        for (int i = 0; i < Table.MAX_PLAYERS; i++) {
+            Player p = getTable().getPlayers()[i];
+            if (p != null && !p.isPaused() && !p.isFolded()) {
+                hands[i] = new Hand(playerCards[i], getTable().getCards());
+                if (winner == -1) {
+                    winner = i;
+                } else {
+                    // TODO - handle ties with multiple winners.
+                    if (hands[i].betterThan(hands[winner]) > 0) {
+                        winner = i;
+                    }
+                }
+            }
+        }
+        return winner;
     }
     
     public Table getTable() {
@@ -204,11 +224,11 @@ public class Game {
     }
     
     public Card[][] getHands() {
-        return hands;
+        return playerCards;
     }
     
     public void setHands(Card[][] hands) {
-        this.hands = hands;
+        this.playerCards = hands;
     }
     
 }
