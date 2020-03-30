@@ -1,5 +1,6 @@
 package uk.co.risk.assessment.model;
 
+import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Random;
@@ -29,10 +30,11 @@ public class Game {
         random = new Random();
     }
     
+    /* aces are high other than low straights, so 2 to 14 rather than 1 to 13. */
     private void shuffle() {
         deck = new LinkedList<>();
         for (Suit suit : Suit.values()) {
-            for (int value = 1; value <= 13; value++) {
+            for (int value = 2; value <= 14; value++) {
                 deck.add(new Card(suit, value));
             }
         }
@@ -151,39 +153,44 @@ public class Game {
     private String checkNextBetter(String playerName, String actionResult) {
         int winner = getTable().checkAllFolded();
         if (winner >= 0) {
-           getTable().endBettingRound();
-           String finishText = getTable().finishHand(winner);
-           getTable().setState(TableState.PREDEAL);
-           return playerName + actionResult + " No other players left." + finishText;
-        } else {
-            LOG.info("Round of betting finished, resolve next table state");
-            String finishText = null;
             getTable().endBettingRound();
-            switch (getTable().getState()) {
-                case PREFLOP:
-                    for (int i = 0; i < 3; i++) {
-                        getTable().getCards()[i] = dealCard();
-                    }
-                    getTable().setState(TableState.FLOP);
-                    break;
-                case FLOP:
-                    getTable().getCards()[3] = dealCard();
-                    getTable().setState(TableState.TURN);
-                    break;
-                case TURN:
-                    getTable().setState(TableState.RIVER);
-                    getTable().getCards()[4] = dealCard();
-                    break;
-                case RIVER:
-                    finishText = getTable().finishHand(getWinner());
-                    getTable().setState(TableState.PREDEAL);
-                    break;
-                default:
-                    LOG.warn("This should never happen, bad table state!");
-                    break;
+            String finishText = getTable().finishHand(winner);
+            getTable().setState(TableState.PREDEAL);
+            return playerName + actionResult + " No other players left." + finishText;
+        } else {
+            boolean finishedRound = getTable().nextBetter();
+            if (!finishedRound) {
+                return playerName + actionResult + getNextToBet();
+            } else {
+                LOG.info("Round of betting finished, resolve next table state");
+                String finishText = null;
+                getTable().endBettingRound();
+                switch (getTable().getState()) {
+                    case PREFLOP:
+                        for (int i = 0; i < 3; i++) {
+                            getTable().getCards()[i] = dealCard();
+                        }
+                        getTable().setState(TableState.FLOP);
+                        break;
+                    case FLOP:
+                        getTable().getCards()[3] = dealCard();
+                        getTable().setState(TableState.TURN);
+                        break;
+                    case TURN:
+                        getTable().setState(TableState.RIVER);
+                        getTable().getCards()[4] = dealCard();
+                        break;
+                    case RIVER:
+                        finishText = getTable().finishHand(getWinner());
+                        getTable().setState(TableState.PREDEAL);
+                        break;
+                    default:
+                        LOG.warn("This should never happen, bad table state!");
+                        break;
+                }
+                return playerName + actionResult + " Betting round finished."
+                        + (finishText == null ? getNextToBet() : finishText);
             }
-            return playerName + actionResult + " Betting round finished." + (finishText == null ? getNextToBet() : finishText);
-            
         }
     }
     
@@ -204,6 +211,8 @@ public class Game {
                 }
             }
         }
+        LOG.info("Winning hand is {} {}", hands[winner].getHandType().getDescription(),
+                Arrays.toString(hands[winner].getOrdinals()));
         return winner;
     }
     
