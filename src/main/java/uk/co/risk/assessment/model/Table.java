@@ -1,7 +1,6 @@
 package uk.co.risk.assessment.model;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.Arrays;
 
 /**
  * All public details of a table.
@@ -18,10 +17,11 @@ public class Table {
     int lastRaise;
     int bigBlind = 10;
     int smallBlind = 5;
-    int mainPot;
     Card[] cards = new Card[5];
     TableState state = TableState.PREDEAL;
-    List<SidePot> sidePots = new ArrayList<>();
+    int currentPot = 0;
+    int numPots = 0;
+    Pot[] pots  = new Pot[MAX_PLAYERS];
     
     public Player[] getPlayers() {
         return players;
@@ -40,12 +40,36 @@ public class Table {
     public int countActivePlayers() {
         int result = 0;
         for (int i = 0; i < MAX_PLAYERS; i++) {
-            Player p = players[i];
-            if (p != null && !p.isPaused() && p.getChips() >= bigBlind) {
+            if (players[i] != null && !players[i].isPaused()) {
                 result++;
             }
         }
         return result;
+    }
+    
+    // at this point we pause any players who don't have at least bigBlind chips. 
+    // returns null if we can deal, message saying why not if can't.
+    public String checkCanDeal() {
+        int result = 0;
+        for (int i = 0; i < MAX_PLAYERS; i++) {
+            Player p = players[i];
+            if (p != null) {
+                if (p.getChips() < bigBlind) {
+                    p.setPaused(true);
+                }
+                if (!p.isPaused()) {
+                 result++;
+                }
+            }
+        }
+        if (result < 2) {
+            return "Could not deal, not enough players.";
+        }
+        if (players[dealer].isPaused()) {
+            dealer = findNextPlayer(dealer);
+            return "Could not deal, not enough chips, skipping to next dealer.";
+        }
+        return null;
     }
     
     // returns the id of the only remaining non-foldedplayer, or -1 if 2 or more people sitll in
@@ -63,14 +87,11 @@ public class Table {
         }
         return result;
     }
-    
-
 
     public void nextHand(int leftover) {
         cards = new Card[5];
         state = TableState.PREFLOP;
-        mainPot = leftover;
-        sidePots = new ArrayList<>();
+        pots[0].pot = leftover;
         for (int i = 0; i < MAX_PLAYERS; i++) {
             Player p = players[i];
             if (p != null && !p.isPaused()) {
@@ -102,7 +123,7 @@ public class Table {
     }
     
     public void nextDealer() {
-        if (countPlayers() > 1) {
+        if (countActivePlayers() > 1) {
             do {
                 dealer = (dealer + 1) % MAX_PLAYERS;
             } while (players[dealer] == null || players[dealer].isPaused());
@@ -120,8 +141,9 @@ public class Table {
         return -1;
     }
     
+    // this is only used for blinds, so always in main pot
     private void makeBet(int player, int amount) {
-        players[player].makeBet(amount);
+        players[player].makeBet(0, amount);
     }
     
     private int findNextPlayer(int start) {
@@ -181,16 +203,20 @@ public class Table {
             }
         }     
     }
+
+    private void betsToPots(Player p) {
+        for (int j = 0; j < MAX_PLAYERS; j++) {
+            pots[j].pot += p.getBets()[j];
+            p.setBet(j, 0);
+        }
+    }
     
     public void endBettingRound() {
         for (int i = 0; i < MAX_PLAYERS; i++) {
             Player p = players[i];
             if (p != null && !p.isPaused() && !p.isFolded()) {
                p.setCheckedCalled(false);
-               mainPot += p.getBet();
-               // TODO handle sidepots
-
-               p.setBet(0);
+               betsToPots(p);
             }
         }
         currentBet = 0;
@@ -200,16 +226,52 @@ public class Table {
     
     public void foldPlayer() {
         Player p = players[nextToBet];
-        mainPot += p.getBet();
-        p.setBet(0);
+        betsToPots(p);
         p.setFolded(true);
     }
     
     public String finishHand(int winner) {
-        players[winner].addChips(mainPot);
+  //      players[winner].addChips(mainPot);
         nextDealer();
-        return players[winner].getName() + " won " + mainPot + " chips. Dealer is now " + players[dealer].getName();
+        return players[winner].getName() + " won " + /* mainPot + */ " chips. Dealer is now " + players[dealer].getName();
     }
+    
+    /* for each hand, we set up the possible required pots in advanced */
+    public void initialisePots() {
+        int[] chipsLeft = new int[MAX_PLAYERS];
+        for (int i = 0; i < MAX_PLAYERS; i++) {
+            Player p = players[i];
+            if (p != null && !p.isPaused() && !p.isFolded() && p.getChips() > 0 ) {
+                chipsLeft[i] = p.getChips();
+            } else {
+                chipsLeft[i] = 0;
+            }
+        }
+        // sort the chipsLeft in increasing order
+        Arrays.sort(chipsLeft);
+        // now create a pot at each level of chips with active players set for it.
+        for (int i = 0; i < MAX_PLAYERS; i++) {
+            // we don't care about people who can't bet any more
+            if (chipsLeft[i] == 0) {
+                continue;
+            }
+            // if same as the previous, we don't need a separate pot
+            if (i > 0 && chipsLeft[i] == chipsLeft[i - 1]) {
+                continue;
+            }
+            pots[numPots].betLimit = chipsLeft[i];
+            /* register all players who are in this pot */
+            for (int j = 0; j < MAX_PLAYERS; j++) {
+                if (players[j].getChips() >= pots[numPots].betLimit) {
+                    pots[numPots].players[j] = true;
+                } else {
+                    pots[numPots].players[j] = false;
+                }
+            }
+            numPots++;
+        }
+    }
+    
     // below here getters/setters
     
     public void setPlayers(Player[] players) {
@@ -267,32 +329,18 @@ public class Table {
         return smallBlind;
     }
 
-
-
     public void setSmallBlind(int smallBlind) {
         this.smallBlind = smallBlind;
     }
 
-    public int getMainPot() {
-        return mainPot;
+    public Pot[] getPots() {
+        return pots;
     }
 
 
 
-    public void setMainPot(int mainPot) {
-        this.mainPot = mainPot;
-    }
-
-
-
-    public List<SidePot> getSidePots() {
-        return sidePots;
-    }
-
-
-
-    public void setSidePots(List<SidePot> sidePots) {
-        this.sidePots = sidePots;
+    public void setPots(Pot[] pots) {
+        this.pots = pots;
     }
     
     
@@ -321,8 +369,11 @@ public class Table {
         this.state = state;
     }
 
-    class SidePot {
+    class Pot {
         int pot;
-        List<Integer> players = new ArrayList<>();
+        /* maximum bet that can go into this pot, determined by still-in player with fewest chips */
+        int betLimit;
+        /* true for players who are involved in this pot */
+        boolean[] players = new boolean[MAX_PLAYERS];
     }
 }

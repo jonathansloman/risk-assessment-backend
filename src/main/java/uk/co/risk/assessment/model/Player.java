@@ -8,7 +8,9 @@ public class Player {
     String name;
     int chips;
     int buyIns;
-    int bet = 0;;
+    // we need an array of bets because of side-pots. 0 is the main pot.
+    int currentPot = 0;
+    int[] bets = new int[Table.MAX_PLAYERS];
     boolean checkedCalled = false;
     boolean folded = false;
     boolean paused = false;
@@ -21,8 +23,8 @@ public class Player {
         
     }
     
-    public void makeBet(int amount) {
-        bet += amount;
+    public void makeBet(int pot, int amount) {
+        bets[pot] += amount;
         chips -= amount;
     }
     
@@ -36,11 +38,14 @@ public class Player {
     }
     
     public String call(int currentBet) {
-        if (bet == currentBet) {
+        if (totalBet() == currentBet) {
             check();
             return " already bet " + currentBet + ", assuming check.";
         } else {
-            int extra = currentBet - bet;
+            int extra = currentBet - totalBet();
+            if (extra > chips) {
+                
+            }
             makeBet(extra);
             checkedCalled = true;
             return " put in " + extra + " to call.";
@@ -88,12 +93,24 @@ public class Player {
         this.buyIns = buyIns;
     }
 
-    public int getBet() {
-        return bet;
+    public int[] getBets() {
+        return bets;
     }
 
-    public void setBet(int bet) {
-        this.bet = bet;
+    public void setBets(int[] bets) {
+        this.bets = bets;
+    }
+    
+    public void setBet(int pot, int amount) {
+        this.bets[pot] = amount;
+    }
+    
+    private int totalBet() {
+        int total = 0;
+        for (int i = 0; i < Table.MAX_PLAYERS; i++) {
+            total += bets[i];
+        }
+        return total;
     }
 
     public boolean isCheckedCalled() {

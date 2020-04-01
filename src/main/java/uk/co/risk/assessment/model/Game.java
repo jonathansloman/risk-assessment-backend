@@ -51,18 +51,17 @@ public class Game {
         shuffle();
         table.nextHand(0);
         for (int i = 0; i < Table.MAX_PLAYERS; i++) {
-            if (table.getPlayers()[i] != null) {
+            Player p = table.getPlayers()[i];
+            if (p != null && !p.isPaused()) {
                 playerCards[i][0] = dealCard();
                 playerCards[i][1] = dealCard();
-                LOG.info("Dealt hand: {}, {} to player {}", playerCards[i][0], playerCards[i][1],
-                        table.getPlayers()[i].getName());
             }
         }
+        table.initialisePots();
     }
     
     public Card[] getCardsFor(String thisPlayer) {
         int location = table.locatePlayer(thisPlayer);
-        LOG.info("Got location {} for player {}", location, thisPlayer);
         if (location != -1) {
             return playerCards[location];
         }
@@ -80,27 +79,27 @@ public class Game {
                 getTable().sitPlayer(player);
                 return playerName + " sat at table";
             } else {
-                LOG.warn("Could not seat player {} - either no space or already seated.",
-                        playerName);
                 return playerName + " could not sit, no space or already seated.";
             }
         } else if ("deal".equals(command)) {
             if (getTable().getState() != TableState.PREDEAL) {
                 return playerName + " tried to deal, game in progress!";
-            } else if (getTable().countActivePlayers() < 2) {
-                LOG.warn("Could not deal, not enough players");
-                return "Could not deal, need at least 2 players";
-            } else if (!getTable().isDealer(playerName)) {
-                LOG.warn("Could not deal, not dealer");
+            } if (!getTable().isDealer(playerName)) {
                 return playerName + " could not deal, not dealer";
             } else {
-                deal();
-                return playerName + " dealt." + getNextToBet();
+                String dealAttempt = getTable().checkCanDeal();
+                if (dealAttempt != null) {
+                    return dealAttempt;
+                } else {
+                    deal();
+                    return playerName + " dealt." + getNextToBet();
+                }
             }
         } else if ("call".equals(command)) {
             if (!getTable().isNextToBet(playerName)) {
                 return playerName + " tried to bet out of turn!";
             }
+            int amountToCall = 
             // TODO handle affordability/split pots
             String result = getTable().getPlayers()[getTable().getNextToBet()]
                     .call(getTable().getCurrentBet());
