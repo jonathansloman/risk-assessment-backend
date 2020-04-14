@@ -14,12 +14,17 @@ public class Player {
     boolean checkedCalled = false;
     boolean folded = false;
     boolean paused = false;
+    boolean allIn = false;
     
     public Player(String name) {
         this.name = name;
     }
     
     public Player() {
+        
+    }
+    
+    public void betToPots(int amount) {
         
     }
     
@@ -37,20 +42,7 @@ public class Player {
         chips += Table.BUYIN;
     }
     
-    public String call(int currentBet) {
-        if (totalBet() == currentBet) {
-            check();
-            return " already bet " + currentBet + ", assuming check.";
-        } else {
-            int extra = currentBet - totalBet();
-            if (extra > chips) {
-                
-            }
-            makeBet(extra);
-            checkedCalled = true;
-            return " put in " + extra + " to call.";
-        }
-    }
+
     
     public void check() {
         checkedCalled = true;
@@ -67,6 +59,7 @@ public class Player {
     public void resetForNextHand() {
         checkedCalled = false;
         folded = false;
+        allIn = false;
     }
     
     public String getName() {
@@ -105,7 +98,8 @@ public class Player {
         this.bets[pot] = amount;
     }
     
-    private int totalBet() {
+    /* total amount we've bet so far */
+    public int totalBet() {
         int total = 0;
         for (int i = 0; i < Table.MAX_PLAYERS; i++) {
             total += bets[i];
@@ -136,6 +130,12 @@ public class Player {
     public void setPaused(boolean paused) {
         this.paused = paused;
     }
-    
-    
+
+    public boolean isAllIn() {
+        return allIn;
+    }
+
+    public void setAllIn(boolean allIn) {
+        this.allIn = allIn;
+    }
 }

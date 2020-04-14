@@ -40,6 +40,7 @@ public class Game {
         }
     }
     
+    /* returns a random card, removing it from the list of remaining cards */
     public Card dealCard() {
         int choice = random.nextInt(deck.size());
         Card card = deck.get(choice);
@@ -47,6 +48,7 @@ public class Game {
         return card;
     }
     
+    /* prepares the deck, prepares the table, deals 2 cards to each active player */
     public void deal() {
         shuffle();
         table.nextHand(0);
@@ -57,9 +59,9 @@ public class Game {
                 playerCards[i][1] = dealCard();
             }
         }
-        table.initialisePots();
     }
     
+    /* retrieve the cards for a player based on name */
     public Card[] getCardsFor(String thisPlayer) {
         int location = table.locatePlayer(thisPlayer);
         if (location != -1) {
@@ -68,6 +70,7 @@ public class Game {
         return null;
     }
     
+    /* deal with player input */
     public synchronized String handleCommand(String playerName, String command) {
         if ("sit".equals(command)) {
             if (getTable().countPlayers() < Table.MAX_PLAYERS && !getTable().isSeated(playerName)) {
@@ -99,7 +102,6 @@ public class Game {
             if (!getTable().isNextToBet(playerName)) {
                 return playerName + " tried to bet out of turn!";
             }
-            int amountToCall = 
             // TODO handle affordability/split pots
             String result = getTable().getPlayers()[getTable().getNextToBet()]
                     .call(getTable().getCurrentBet());
@@ -145,10 +147,14 @@ public class Game {
         return command;
     }
     
+    /* Return message saying who is next to bet */
     private String getNextToBet() {
         return " Next to bet is: " + getTable().getPlayers()[getTable().getNextToBet()].getName();
     }
     
+    /* checks if betting round has finished and if so advances to next stage of game. Returns outcome to be sent
+     * to players.
+     */
     private String checkNextBetter(String playerName, String actionResult) {
         int winner = getTable().checkAllFolded();
         if (winner >= 0) {

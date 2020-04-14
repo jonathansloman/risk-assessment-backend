@@ -72,7 +72,7 @@ public class Table {
         return null;
     }
     
-    // returns the id of the only remaining non-foldedplayer, or -1 if 2 or more people sitll in
+    // returns the id of the only remaining non-foldedplayer, or -1 if 2 or more people still in
     public int checkAllFolded() {
         int result = -1;
         for (int i = 0; i < MAX_PLAYERS; i++) {
@@ -88,6 +88,7 @@ public class Table {
         return result;
     }
 
+    /* prepare table for next hand, resetting everything */
     public void nextHand(int leftover) {
         cards = new Card[5];
         state = TableState.PREFLOP;
@@ -105,11 +106,12 @@ public class Table {
         int smallBlindIndex = findNextPlayer(dealer);
         int bigBlindIndex = findNextPlayer(smallBlindIndex);
         nextToBet = findNextPlayer(bigBlindIndex);
-        makeBet(smallBlindIndex, smallBlind);
-        makeBet(bigBlindIndex, bigBlind);
+        processBlind(smallBlindIndex, smallBlind);
+        processBlind(bigBlindIndex, bigBlind);
         
         currentBet = bigBlind;
         lastRaise = bigBlind;
+        initialisePots();
     }
     
     public boolean nextBetter() {
@@ -142,10 +144,11 @@ public class Table {
     }
     
     // this is only used for blinds, so always in main pot
-    private void makeBet(int player, int amount) {
+    private void processBlind(int player, int amount) {
         players[player].makeBet(0, amount);
     }
     
+    /* locate the next player from a given position who is still in the game */
     private int findNextPlayer(int start) {
         int index = start + 1;
         while (start != index && players[index] == null || players[index].isPaused() || players[index].isFolded()) {
@@ -159,6 +162,7 @@ public class Table {
         for (int i = 0; i < MAX_PLAYERS; i++) {
             if (players[i] == null) {
                 players[i] = p;
+                // TODO may be returning player who already has chips
                 p.buyIn();
                 if (dealer < 0) {
                     dealer = i;
@@ -237,7 +241,7 @@ public class Table {
     }
     
     /* for each hand, we set up the possible required pots in advanced */
-    public void initialisePots() {
+    private void initialisePots() {
         int[] chipsLeft = new int[MAX_PLAYERS];
         for (int i = 0; i < MAX_PLAYERS; i++) {
             Player p = players[i];
@@ -250,6 +254,7 @@ public class Table {
         // sort the chipsLeft in increasing order
         Arrays.sort(chipsLeft);
         // now create a pot at each level of chips with active players set for it.
+        numPots = 0;
         for (int i = 0; i < MAX_PLAYERS; i++) {
             // we don't care about people who can't bet any more
             if (chipsLeft[i] == 0) {
@@ -262,13 +267,30 @@ public class Table {
             pots[numPots].betLimit = chipsLeft[i];
             /* register all players who are in this pot */
             for (int j = 0; j < MAX_PLAYERS; j++) {
-                if (players[j].getChips() >= pots[numPots].betLimit) {
+                Player p = players[j];
+                if (p != null && !p.isPaused() && p.getChips() >= pots[numPots].betLimit) {
                     pots[numPots].players[j] = true;
                 } else {
                     pots[numPots].players[j] = false;
                 }
             }
             numPots++;
+        }
+    }
+    
+    public String call(Player p, int currentBet) {
+        if (p.totalBet() == currentBet) {
+            p.check();
+            return " already bet " + currentBet + ", assuming check.";
+        } else {
+            int extra = currentBet - p.totalBet();
+            if (extra >= p.getChips()) {
+                allIn = true;
+                extra = p.getChips();
+            }
+            betToPots(p, extra);
+            p.setCheckedCalled(true);
+            return " put in " + extra + " to call.";
         }
     }
     
