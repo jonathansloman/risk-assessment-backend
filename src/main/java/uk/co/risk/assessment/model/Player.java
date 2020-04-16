@@ -24,10 +24,6 @@ public class Player {
         
     }
     
-    public void betToPots(int amount) {
-        
-    }
-    
     public void makeBet(int pot, int amount) {
         bets[pot] += amount;
         chips -= amount;
@@ -42,18 +38,8 @@ public class Player {
         chips += Table.BUYIN;
     }
     
-
-    
     public void check() {
         checkedCalled = true;
-    }
-    
-    public String raise(int currentBet, int raise) {
-        int extraTable = raise - currentBet;
-        int extraPlayer = raise - bet;
-        makeBet(extraPlayer);
-        checkedCalled = true;
-        return " put in " + extraPlayer + " to raise by " + extraTable + " to " + raise;
     }
     
     public void resetForNextHand() {

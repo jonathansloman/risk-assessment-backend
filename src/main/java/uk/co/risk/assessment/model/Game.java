@@ -87,7 +87,8 @@ public class Game {
         } else if ("deal".equals(command)) {
             if (getTable().getState() != TableState.PREDEAL) {
                 return playerName + " tried to deal, game in progress!";
-            } if (!getTable().isDealer(playerName)) {
+            }
+            if (!getTable().isDealer(playerName)) {
                 return playerName + " could not deal, not dealer";
             } else {
                 String dealAttempt = getTable().checkCanDeal();
@@ -103,15 +104,14 @@ public class Game {
                 return playerName + " tried to bet out of turn!";
             }
             // TODO handle affordability/split pots
-            String result = getTable().getPlayers()[getTable().getNextToBet()]
-                    .call(getTable().getCurrentBet());
+            String result = getTable().call(getTable().getPlayers()[getTable().getNextToBet()]);
             return checkNextBetter(playerName, result);
         } else if ("check".equals(command)) {
             if (!getTable().isNextToBet(playerName)) {
                 return playerName + " tried to bet out of turn!";
             }
             Player p = getTable().getPlayers()[getTable().getNextToBet()];
-            if (p.getBet() != getTable().getCurrentBet()) {
+            if (p.totalBet() != getTable().getCurrentBet()) {
                 return playerName + " tried to check but can't!";
             }
             getTable().getPlayers()[getTable().getNextToBet()].check();
@@ -123,15 +123,15 @@ public class Game {
             int amount = Integer.parseInt(command.substring(6));
             Player p = getTable().getPlayers()[getTable().getNextToBet()];
             // allow for all in raise even if under raise limit.
-            if (amount < getTable().getMinimumRaise() && amount != p.getChips() - p.getBet()) {
+            if (amount < getTable().getMinimumRaise() && amount != p.getChips() - p.totalBet()) {
                 return playerName + " tried to raise too little - minimum is: "
                         + getTable().getMinimumRaise();
             }
-            if (p.getChips() - p.getBet() < amount) {
+            if (p.getChips() - p.totalBet() < amount) {
                 return playerName + " tried to raise by more chips than they have!";
             }
             // TODO handle affordability/split pots
-            String result = p.raise(getTable().getCurrentBet(), amount);
+            String result = getTable().raise(p, amount);//p.raise(getTable().getCurrentBet(), amount);
             getTable().clearCheckedCalled(playerName);
             getTable().setCurrentBet(amount);
             return checkNextBetter(playerName, result);
@@ -152,8 +152,8 @@ public class Game {
         return " Next to bet is: " + getTable().getPlayers()[getTable().getNextToBet()].getName();
     }
     
-    /* checks if betting round has finished and if so advances to next stage of game. Returns outcome to be sent
-     * to players.
+    /*
+     * checks if betting round has finished and if so advances to next stage of game. Returns outcome to be sent to players.
      */
     private String checkNextBetter(String playerName, String actionResult) {
         int winner = getTable().checkAllFolded();

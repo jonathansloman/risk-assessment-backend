@@ -2,11 +2,16 @@ package uk.co.risk.assessment.model;
 
 import java.util.Arrays;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 /**
  * All public details of a table.
  *
  */
-public class Table { 
+public class Table {
+    private static final Logger LOG = LoggerFactory.getLogger(Table.class);
+
     public final static int MAX_PLAYERS = 10;
     public final static int BUYIN = 500;
     
@@ -21,12 +26,20 @@ public class Table {
     TableState state = TableState.PREDEAL;
     int currentPot = 0;
     int numPots = 0;
-    Pot[] pots  = new Pot[MAX_PLAYERS];
+    // how much each player has put in so far from previous betting rounds.
+    int potLevel = 0;
+    Pot[] pots = new Pot[MAX_PLAYERS];
+    
+    public Table() {
+        for (int i = 0; i < MAX_PLAYERS; i++) {
+            pots[i] = new Pot();
+        }
+    }
     
     public Player[] getPlayers() {
         return players;
     }
-
+    
     public int countPlayers() {
         int result = 0;
         for (int i = 0; i < MAX_PLAYERS; i++) {
@@ -47,7 +60,7 @@ public class Table {
         return result;
     }
     
-    // at this point we pause any players who don't have at least bigBlind chips. 
+    // at this point we pause any players who don't have at least bigBlind chips.
     // returns null if we can deal, message saying why not if can't.
     public String checkCanDeal() {
         int result = 0;
@@ -58,7 +71,7 @@ public class Table {
                     p.setPaused(true);
                 }
                 if (!p.isPaused()) {
-                 result++;
+                    result++;
                 }
             }
         }
@@ -87,7 +100,7 @@ public class Table {
         }
         return result;
     }
-
+    
     /* prepare table for next hand, resetting everything */
     public void nextHand(int leftover) {
         cards = new Card[5];
@@ -129,7 +142,7 @@ public class Table {
             do {
                 dealer = (dealer + 1) % MAX_PLAYERS;
             } while (players[dealer] == null || players[dealer].isPaused());
-        }   
+        }
     }
     
     public int locatePlayer(String playerName) {
@@ -139,7 +152,7 @@ public class Table {
                     return i;
                 }
             }
-        } 
+        }
         return -1;
     }
     
@@ -151,7 +164,8 @@ public class Table {
     /* locate the next player from a given position who is still in the game */
     private int findNextPlayer(int start) {
         int index = start + 1;
-        while (start != index && players[index] == null || players[index].isPaused() || players[index].isFolded()) {
+        while (start != index && players[index] == null || players[index].isPaused()
+                || players[index].isFolded()) {
             index = (index + 1) % MAX_PLAYERS;
         }
         return index;
@@ -203,11 +217,11 @@ public class Table {
         for (int i = 0; i < MAX_PLAYERS; i++) {
             Player p = players[i];
             if (p != null && !p.isPaused() && !p.isFolded() && !playerName.equals(p.getName())) {
-               p.setCheckedCalled(false);
+                p.setCheckedCalled(false);
             }
-        }     
+        }
     }
-
+    
     private void betsToPots(Player p) {
         for (int j = 0; j < MAX_PLAYERS; j++) {
             pots[j].pot += p.getBets()[j];
@@ -219,12 +233,13 @@ public class Table {
         for (int i = 0; i < MAX_PLAYERS; i++) {
             Player p = players[i];
             if (p != null && !p.isPaused() && !p.isFolded()) {
-               p.setCheckedCalled(false);
-               betsToPots(p);
+                p.setCheckedCalled(false);
+                betsToPots(p);
             }
         }
+        potLevel += currentBet;
         currentBet = 0;
-        lastRaise = 10; 
+        lastRaise = 10;
         nextToBet = findNextPlayer(dealer);
     }
     
@@ -235,9 +250,10 @@ public class Table {
     }
     
     public String finishHand(int winner) {
-  //      players[winner].addChips(mainPot);
+        // players[winner].addChips(mainPot);
         nextDealer();
-        return players[winner].getName() + " won " + /* mainPot + */ " chips. Dealer is now " + players[dealer].getName();
+        return players[winner].getName() + " won " + /* mainPot + */ " chips. Dealer is now "
+                + players[dealer].getName();
     }
     
     /* for each hand, we set up the possible required pots in advanced */
@@ -245,7 +261,7 @@ public class Table {
         int[] chipsLeft = new int[MAX_PLAYERS];
         for (int i = 0; i < MAX_PLAYERS; i++) {
             Player p = players[i];
-            if (p != null && !p.isPaused() && !p.isFolded() && p.getChips() > 0 ) {
+            if (p != null && !p.isPaused() && !p.isFolded() && p.getChips() > 0) {
                 chipsLeft[i] = p.getChips();
             } else {
                 chipsLeft[i] = 0;
@@ -255,6 +271,7 @@ public class Table {
         Arrays.sort(chipsLeft);
         // now create a pot at each level of chips with active players set for it.
         numPots = 0;
+        potLevel = 0;
         for (int i = 0; i < MAX_PLAYERS; i++) {
             // we don't care about people who can't bet any more
             if (chipsLeft[i] == 0) {
@@ -278,20 +295,55 @@ public class Table {
         }
     }
     
-    public String call(Player p, int currentBet) {
+    /* work out how many chips of bet go into each pot */
+    private void makeBet(Player p, int amount) {
+        LOG.info("Player {} making bet of amount {}", p.getName(), amount);
+        int startLevel = potLevel + p.totalBet();
+        for (int i = 0; i < numPots; i++) {
+            /* ignore pots that we've already filled up */
+            if (pots[i].betLimit < startLevel) {
+                continue;
+            }
+            if (startLevel + amount <= pots[i].betLimit) {
+                /* this is the final pot we need to put stuff into */
+                LOG.info("Final bet of {} going into pot {}", amount, i);
+                p.makeBet(i, amount);
+                break;
+            } else {
+                int toFillPot = pots[i].betLimit - startLevel;
+                p.makeBet(i, toFillPot);
+                amount -= toFillPot;
+                LOG.info("Filling pot {} with bet amount {} leaving {}", i, toFillPot, amount);
+            }
+        }      
+    }
+    
+    public String call(Player p) {
         if (p.totalBet() == currentBet) {
             p.check();
             return " already bet " + currentBet + ", assuming check.";
         } else {
             int extra = currentBet - p.totalBet();
             if (extra >= p.getChips()) {
-                allIn = true;
+                p.setAllIn(true);
                 extra = p.getChips();
             }
-            betToPots(p, extra);
+            makeBet(p, extra);
             p.setCheckedCalled(true);
             return " put in " + extra + " to call.";
         }
+    }
+    
+    public String raise(Player p, int amount ) {
+        int extra = amount - p.totalBet();
+        if (extra == p.getChips()) {
+            p.setAllIn(true);
+            extra = p.getChips();
+        }
+        makeBet(p, extra);
+        p.setCheckedCalled(true);
+        currentBet = amount;
+        return " put in " + extra + " to raise to " + amount + ".";
     }
     
     // below here getters/setters
@@ -299,103 +351,106 @@ public class Table {
     public void setPlayers(Player[] players) {
         this.players = players;
     }
-
+    
     public int getDealer() {
         return dealer;
     }
-
-
-
+    
     public void setDealer(int dealer) {
         this.dealer = dealer;
     }
-
-
-
+    
     public int getNextToBet() {
         return nextToBet;
     }
-
-
-
+    
     public void setNextToBet(int nextToBet) {
         this.nextToBet = nextToBet;
     }
-
-
-
+    
     public int getCurrentBet() {
         return currentBet;
     }
-
-
-
+    
     public void setCurrentBet(int currentBet) {
         this.currentBet = currentBet;
     }
-
-
+    
     public int getBigBlind() {
         return bigBlind;
     }
-
-
-
+    
     public void setBigBlind(int bigBlind) {
         this.bigBlind = bigBlind;
     }
-
-
-
+    
     public int getSmallBlind() {
         return smallBlind;
     }
-
+    
     public void setSmallBlind(int smallBlind) {
         this.smallBlind = smallBlind;
     }
-
+    
     public Pot[] getPots() {
         return pots;
     }
-
-
-
+    
     public void setPots(Pot[] pots) {
         this.pots = pots;
     }
     
-    
-
     public int getLastRaise() {
         return lastRaise;
     }
-
+    
     public void setLastRaise(int lastRaise) {
         this.lastRaise = lastRaise;
     }
-
+    
     public Card[] getCards() {
         return cards;
     }
-
+    
     public void setCards(Card[] cards) {
         this.cards = cards;
     }
-
+    
     public TableState getState() {
         return state;
     }
-
+    
     public void setState(TableState state) {
         this.state = state;
     }
-
+    
     class Pot {
         int pot;
         /* maximum bet that can go into this pot, determined by still-in player with fewest chips */
         int betLimit;
         /* true for players who are involved in this pot */
         boolean[] players = new boolean[MAX_PLAYERS];
+        
+        
+        public int getPot() {
+            return pot;
+        }
+        public void setPot(int pot) {
+            this.pot = pot;
+        }
+        public int getBetLimit() {
+            return betLimit;
+        }
+        public void setBetLimit(int betLimit) {
+            this.betLimit = betLimit;
+        }
+        public boolean[] getPlayers() {
+            return players;
+        }
+        public void setPlayers(boolean[] players) {
+            this.players = players;
+        }
+        
+        
     }
 }
