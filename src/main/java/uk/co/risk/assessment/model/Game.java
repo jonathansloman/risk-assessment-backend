@@ -138,8 +138,7 @@ public class Game {
             if (p.getChips() - p.totalBet() < amount) {
                 return playerName + " tried to raise by more chips than they have!";
             }
-            // TODO handle affordability/split pots
-            String result = getTable().raise(p, amount);//p.raise(getTable().getCurrentBet(), amount);
+            String result = getTable().raise(p, amount);
             getTable().clearCheckedCalled(playerName);
             getTable().setCurrentBet(amount);
             return checkNextBetter(playerName, result);
