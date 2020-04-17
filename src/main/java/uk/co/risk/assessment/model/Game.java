@@ -120,7 +120,15 @@ public class Game {
             if (!getTable().isNextToBet(playerName)) {
                 return playerName + " tried to bet out of turn!";
             }
-            int amount = Integer.parseInt(command.substring(6));
+            if (command.length() < 7) {
+                return playerName + " invalid raise";
+            }
+            int amount;
+            try {
+                amount = Integer.parseInt(command.substring(6));
+            } catch (NumberFormatException e) {
+                return playerName + " invalid raise";
+            }
             Player p = getTable().getPlayers()[getTable().getNextToBet()];
             // allow for all in raise even if under raise limit.
             if (amount < getTable().getMinimumRaise() && amount != p.getChips() - p.totalBet()) {
@@ -142,6 +150,20 @@ public class Game {
             }
             getTable().foldPlayer();
             return checkNextBetter(playerName, " folded.");
+        } else if (command.startsWith("setchips")) {
+            if (command.length() < 10) {
+                return playerName + " invalid setchips";
+            }
+            int amount;
+            try {
+                amount = Integer.parseInt(command.substring(9));
+            } catch (NumberFormatException e) {
+                return playerName + " invalid setchips";
+            }
+            // TODO for TESTING ONLY
+            Player player = playerDAO.getPlayer(playerName);
+            player.setChips(amount);
+            return playerName = " set their chips to: " + amount;
         }
         // just echo command back if we haven't dealt with it.
         return command;
