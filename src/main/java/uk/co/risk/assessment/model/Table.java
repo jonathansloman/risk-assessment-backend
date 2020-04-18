@@ -86,11 +86,11 @@ public class Table {
     }
     
     // returns the number of still active players. If this is 1 or lower, hand is finished.
-    public int remainingActivePlayers() {
+    public int remainingActivePlayers(boolean countAllIn) {
         int count = 0;
         for (int i = 0; i < MAX_PLAYERS; i++) {
             Player p = players[i];
-            if (p != null && !p.isPaused() && !p.isFolded() && !p.isAllIn()) {
+            if (p != null && !p.isPaused() && !p.isFolded() && (!countAllIn  || !p.isAllIn())) {
                 count++;
             }
         }

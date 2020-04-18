@@ -212,7 +212,7 @@ public class Game {
      * checks if betting round has finished and if so advances to next stage of game. Returns outcome to be sent to players.
      */
     private String checkNextBetter(String playerName, String actionResult) {
-        if (getTable().remainingActivePlayers() <= 1) {
+        if (getTable().remainingActivePlayers(false) <= 1) {
             // tidy bets into pots
             getTable().endBettingRound();
             // work out who won what.
@@ -227,6 +227,12 @@ public class Game {
                 LOG.info("Round of betting finished, resolve next table state");
                 String finishText = null;
                 getTable().endBettingRound();
+                // At this point, if everyone is all in, or all but one person are all in, we're actually finished
+                if (getTable().remainingActivePlayers(true) <= 1) {
+                    finishText = findWinners();
+                    getTable().setState(TableState.PREDEAL);
+                    return playerName + actionResult + ". Hand finished. " + finishText;
+                }
                 switch (getTable().getState()) {
                     case PREFLOP:
                         for (int i = 0; i < 3; i++) {
@@ -297,7 +303,7 @@ public class Game {
         }
         if (winner != null) {
             int winnings = 0;
-            /* by definition this player must have been involved in all pots so don't need to check*/
+            /* by definition this player must have been involved in all pots so don't need to check */
             for (int i = 0; i < getTable().getNumPots(); i++) {
                 winnings += getTable().getPots()[i].getPot();
             }
@@ -306,7 +312,7 @@ public class Game {
             
         }
         StringBuffer result = new StringBuffer();
-        // we have more than one potential winner, so work out hands of all remaining players, so 
+        // we have more than one potential winner, so work out hands of all remaining players, so
         // we need to first deal any remaining cards.
         dealRemainingCards();
         // then work out the hands of all remaining players
@@ -332,27 +338,31 @@ public class Game {
                         } else if (compare == 1) {
                             potWinners.clear();
                             potWinners.add(j);
-                        }                        
+                        }
                     }
                 }
             }
             // work out how much each winner gets
             int numWinners = potWinners.size();
-            int toSplit = getTable().getPots()[i].getPot();
-            while (toSplit % numWinners != 0) {
-                toSplit -=  getTable().getSmallBlind();
-                leftover += getTable().getSmallBlind();
-            }
-            StringBuffer winningNames = new StringBuffer();
-            for (int j = 0; j < numWinners; j++) {
-                Player p = getPlayerFromTable(potWinners.get(j));
-                winningNames.append(p.getName());
-                if (j < numWinners - 1) {
-                    winningNames.append(", ");
+            if (numWinners > 0) {
+                int toSplit = getTable().getPots()[i].getPot();
+                while (toSplit % numWinners != 0) {
+                    toSplit -= getTable().getSmallBlind();
+                    leftover += getTable().getSmallBlind();
                 }
-                p.addChips(toSplit / numWinners);
+                StringBuffer winningNames = new StringBuffer();
+                for (int j = 0; j < numWinners; j++) {
+                    Player p = getPlayerFromTable(potWinners.get(j));
+                    winningNames.append(p.getName());
+                    if (j < numWinners - 1) {
+                        winningNames.append(", ");
+                    }
+                    p.addChips(toSplit / numWinners);
+                }
+                result.append(
+                        winningNames.toString() + " won " + (toSplit / numWinners) + " from pot "
+                                + (i + 1) + " with " + hands[potWinners.get(0)].toString() + ". ");
             }
-            result.append(winningNames.toString() + " won " + (toSplit / numWinners) + " from pot " + (i + 1) + " with " + hands[potWinners.get(0)].toString() + ". ");
         }
         return result.toString();
     }
