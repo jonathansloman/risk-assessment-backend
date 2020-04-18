@@ -276,6 +276,11 @@ public class Hand {
         }
     }
     
+    public String toString() {
+        // TODO proper description of kickers etc
+        return getHandType().getDescription() + " " + Arrays.toString(getOrdinals());
+    }
+    
     public Card[] getCards() {
         return cards;
     }

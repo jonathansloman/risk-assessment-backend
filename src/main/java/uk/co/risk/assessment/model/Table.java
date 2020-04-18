@@ -24,10 +24,10 @@ public class Table {
     int smallBlind = 5;
     Card[] cards = new Card[5];
     TableState state = TableState.PREDEAL;
-    int currentPot = 0;
     int numPots = 0;
     // how much each player has put in so far from previous betting rounds.
     int potLevel = 0;
+    int maximumBet = 0;
     Pot[] pots = new Pot[MAX_PLAYERS];
     
     public Table() {
@@ -85,20 +85,16 @@ public class Table {
         return null;
     }
     
-    // returns the id of the only remaining non-foldedplayer, or -1 if 2 or more people still in
-    public int checkAllFolded() {
-        int result = -1;
+    // returns the number of still active players. If this is 1 or lower, hand is finished.
+    public int remainingActivePlayers() {
+        int count = 0;
         for (int i = 0; i < MAX_PLAYERS; i++) {
             Player p = players[i];
-            if (p != null && !p.isPaused() && !p.isFolded()) {
-                if (result == -1) {
-                    result = i;
-                } else {
-                    return -1;
-                }
+            if (p != null && !p.isPaused() && !p.isFolded() && !p.isAllIn()) {
+                count++;
             }
         }
-        return result;
+        return count;
     }
     
     /* prepare table for next hand, resetting everything */
@@ -164,8 +160,8 @@ public class Table {
     /* locate the next player from a given position who is still in the game */
     private int findNextPlayer(int start) {
         int index = start + 1;
-        while (start != index && players[index] == null || players[index].isPaused()
-                || players[index].isFolded()) {
+        while (start != index && (players[index] == null || players[index].isPaused()
+                || players[index].isFolded() || players[index].isAllIn())) {
             index = (index + 1) % MAX_PLAYERS;
         }
         return index;
@@ -283,15 +279,26 @@ public class Table {
             }
             pots[numPots].betLimit = chipsLeft[i];
             /* register all players who are in this pot */
+            int count = 0;
             for (int j = 0; j < MAX_PLAYERS; j++) {
                 Player p = players[j];
                 if (p != null && !p.isPaused() && p.getChips() >= pots[numPots].betLimit) {
                     pots[numPots].players[j] = true;
+                    count++;
                 } else {
                     pots[numPots].players[j] = false;
                 }
             }
-            numPots++;
+            // if there was only one player in this pot, then we reset it and set the maximum bet
+            // to be the level from the previous pot. A single player with more chips than anyone else
+            // can't ever bet those extra chips.
+            if (count == 1) {
+                // not strictly necessary as this pot will never be used
+                pots[numPots].betLimit = 0;
+            } else {
+                maximumBet = pots[numPots].betLimit;
+                numPots++;
+            }
         }
     }
     
@@ -335,6 +342,10 @@ public class Table {
     }
     
     public String raise(Player p, int amount ) {
+        if (amount + potLevel > maximumBet) {
+            amount = maximumBet - potLevel;
+            p.setAllIn(true);
+        }
         int extra = amount - p.totalBet();
         if (extra == p.getChips()) {
             p.setAllIn(true);
@@ -424,6 +435,30 @@ public class Table {
         this.state = state;
     }
     
+    public int getNumPots() {
+        return numPots;
+    }
+
+    public void setNumPots(int numPots) {
+        this.numPots = numPots;
+    }
+
+    public int getPotLevel() {
+        return potLevel;
+    }
+
+    public void setPotLevel(int potLevel) {
+        this.potLevel = potLevel;
+    }
+
+    public int getMaximumBet() {
+        return maximumBet;
+    }
+
+    public void setMaximumBet(int maximumBet) {
+        this.maximumBet = maximumBet;
+    }
+
     class Pot {
         int pot;
         /* maximum bet that can go into this pot, determined by still-in player with fewest chips */

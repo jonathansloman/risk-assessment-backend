@@ -1,5 +1,6 @@
 package uk.co.risk.assessment.model;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
@@ -21,6 +22,8 @@ public class Game {
     List<Card> deck;
     Card[][] playerCards = new Card[Table.MAX_PLAYERS][2];
     Random random;
+    // leftover chips from previous hand due to split pots
+    int leftover = 0;
     
     PlayerDAO playerDAO;
     
@@ -48,13 +51,23 @@ public class Game {
         return card;
     }
     
+    // shorthand for a common check
+    private boolean isActive(Player p) {
+        return p == null || p.isPaused() || p.isFolded();
+    }
+    
+    private Player getPlayerFromTable(int i) {
+        return getTable().getPlayers()[i];
+    }
+    
     /* prepares the deck, prepares the table, deals 2 cards to each active player */
     public void deal() {
         shuffle();
-        table.nextHand(0);
+        getTable().nextHand(leftover);
+        leftover = 0;
         for (int i = 0; i < Table.MAX_PLAYERS; i++) {
-            Player p = table.getPlayers()[i];
-            if (p != null && !p.isPaused()) {
+            Player p = getPlayerFromTable(i);
+            if (isActive(p)) {
                 playerCards[i][0] = dealCard();
                 playerCards[i][1] = dealCard();
             }
@@ -104,17 +117,17 @@ public class Game {
                 return playerName + " tried to bet out of turn!";
             }
             // TODO handle affordability/split pots
-            String result = getTable().call(getTable().getPlayers()[getTable().getNextToBet()]);
+            String result = getTable().call(getPlayerFromTable(getTable().getNextToBet()));
             return checkNextBetter(playerName, result);
         } else if ("check".equals(command)) {
             if (!getTable().isNextToBet(playerName)) {
                 return playerName + " tried to bet out of turn!";
             }
-            Player p = getTable().getPlayers()[getTable().getNextToBet()];
+            Player p = getPlayerFromTable(getTable().getNextToBet());
             if (p.totalBet() != getTable().getCurrentBet()) {
                 return playerName + " tried to check but can't!";
             }
-            getTable().getPlayers()[getTable().getNextToBet()].check();
+            getPlayerFromTable(getTable().getNextToBet()).check();
             return checkNextBetter(playerName, " checked.");
         } else if (command.startsWith("raise ")) {
             if (!getTable().isNextToBet(playerName)) {
@@ -129,7 +142,7 @@ public class Game {
             } catch (NumberFormatException e) {
                 return playerName + " invalid raise";
             }
-            Player p = getTable().getPlayers()[getTable().getNextToBet()];
+            Player p = getPlayerFromTable(getTable().getNextToBet());
             // allow for all in raise even if under raise limit.
             if (amount < getTable().getMinimumRaise() && amount != p.getChips() - p.totalBet()) {
                 return playerName + " tried to raise too little - minimum is: "
@@ -150,6 +163,7 @@ public class Game {
             getTable().foldPlayer();
             return checkNextBetter(playerName, " folded.");
         } else if (command.startsWith("setchips")) {
+            // TODO for TESTING ONLY
             if (command.length() < 10) {
                 return playerName + " invalid setchips";
             }
@@ -159,30 +173,52 @@ public class Game {
             } catch (NumberFormatException e) {
                 return playerName + " invalid setchips";
             }
-            // TODO for TESTING ONLY
             Player player = playerDAO.getPlayer(playerName);
             player.setChips(amount);
             return playerName = " set their chips to: " + amount;
+        } else if (command.startsWith("sethand")) {
+            // TODO for TESTING ONLY
+            if (command.length() != 12) {
+                return playerName + " invalid sethand";
+            }
+            String cards = command.substring(8);
+            for (int i = 0; i < Table.MAX_PLAYERS; i++) {
+                Player p = getPlayerFromTable(i);
+                if (p != null && p.getName().equals(playerName)) {
+                    playerCards[i] = parseCards(cards.toUpperCase());
+                    return playerName + " set their cards to: " + cards;
+                }
+            }
+            
         }
         // just echo command back if we haven't dealt with it.
         return command;
     }
     
+    // just used for testing card-setting - parse a string like 3DJS into three of diamonds, jack of spades
+    private Card[] parseCards(String cardString) {
+        Card[] cards = new Card[2];
+        cards[0] = new Card(cardString.charAt(1), cardString.charAt(0));
+        cards[1] = new Card(cardString.charAt(3), cardString.charAt(2));
+        return cards;
+    }
+    
     /* Return message saying who is next to bet */
     private String getNextToBet() {
-        return " Next to bet is: " + getTable().getPlayers()[getTable().getNextToBet()].getName();
+        return " Next to bet is: " + getPlayerFromTable(getTable().getNextToBet()).getName();
     }
     
     /*
      * checks if betting round has finished and if so advances to next stage of game. Returns outcome to be sent to players.
      */
     private String checkNextBetter(String playerName, String actionResult) {
-        int winner = getTable().checkAllFolded();
-        if (winner >= 0) {
+        if (getTable().remainingActivePlayers() <= 1) {
+            // tidy bets into pots
             getTable().endBettingRound();
-            String finishText = getTable().finishHand(winner);
+            // work out who won what.
+            String finishText = findWinners();
             getTable().setState(TableState.PREDEAL);
-            return playerName + actionResult + " No other players left." + finishText;
+            return playerName + actionResult + ". Hand finished. " + finishText;
         } else {
             boolean finishedRound = getTable().nextBetter();
             if (!finishedRound) {
@@ -207,7 +243,7 @@ public class Game {
                         getTable().getCards()[4] = dealCard();
                         break;
                     case RIVER:
-                        finishText = getTable().finishHand(getWinner());
+                        finishText = findWinners();
                         getTable().setState(TableState.PREDEAL);
                         break;
                     default:
@@ -220,26 +256,105 @@ public class Game {
         }
     }
     
-    public int getWinner() {
-        Hand[] hands = new Hand[Table.MAX_PLAYERS];
-        int winner = -1;
+    private void dealRemainingCards() {
+        switch (getTable().getState()) {
+            case PREFLOP:
+                for (int i = 0; i < 5; i++) {
+                    getTable().getCards()[i] = dealCard();
+                }
+                break;
+            case FLOP:
+                getTable().getCards()[3] = dealCard();
+                getTable().getCards()[4] = dealCard();
+                break;
+            case TURN:
+                getTable().getCards()[4] = dealCard();
+                break;
+            case RIVER:
+                break;
+            default:
+                LOG.warn("This should never happen, bad table state!");
+                break;
+        }
+        getTable().setState(TableState.RIVER);
+    }
+    
+    /* for each pot, work out who won what */
+    private String findWinners() {
+        // first check for the special case where only one player is left in and so wins everything
+        Player winner = null;
         for (int i = 0; i < Table.MAX_PLAYERS; i++) {
-            Player p = getTable().getPlayers()[i];
-            if (p != null && !p.isPaused() && !p.isFolded()) {
-                hands[i] = new Hand(playerCards[i], getTable().getCards());
-                if (winner == -1) {
-                    winner = i;
+            Player p = getPlayerFromTable(i);
+            if (isActive(p)) {
+                if (winner != null) {
+                    // we have more than one person in
+                    winner = null;
+                    break;
                 } else {
-                    // TODO - handle ties with multiple winners.
-                    if (hands[i].betterThan(hands[winner]) > 0) {
-                        winner = i;
-                    }
+                    winner = p;
                 }
             }
         }
-        LOG.info("Winning hand is {} {}", hands[winner].getHandType().getDescription(),
-                Arrays.toString(hands[winner].getOrdinals()));
-        return winner;
+        if (winner != null) {
+            int winnings = 0;
+            /* by definition this player must have been involved in all pots so don't need to check*/
+            for (int i = 0; i < getTable().getNumPots(); i++) {
+                winnings += getTable().getPots()[i].getPot();
+            }
+            winner.addChips(winnings);
+            return winner.getName() + " won " + winnings;
+            
+        }
+        StringBuffer result = new StringBuffer();
+        // we have more than one potential winner, so work out hands of all remaining players, so 
+        // we need to first deal any remaining cards.
+        dealRemainingCards();
+        // then work out the hands of all remaining players
+        Hand[] hands = new Hand[Table.MAX_PLAYERS];
+        for (int i = 0; i < Table.MAX_PLAYERS; i++) {
+            Player p = getPlayerFromTable(i);
+            if (isActive(p)) {
+                hands[i] = new Hand(playerCards[i], getTable().getCards());
+            }
+        }
+        // then for each pot, work out who the winners are
+        for (int i = 0; i < getTable().getNumPots(); i++) {
+            List<Integer> potWinners = new ArrayList<>();
+            for (int j = 0; j < Table.MAX_PLAYERS; j++) {
+                Player p = getTable().getPlayers()[j];
+                if (isActive(p) && getTable().getPots()[i].getPlayers()[j]) {
+                    if (potWinners.isEmpty()) {
+                        potWinners.add(j);
+                    } else {
+                        int compare = hands[j].betterThan(hands[potWinners.get(0)]);
+                        if (compare == 0) {
+                            potWinners.add(j);
+                        } else if (compare == 1) {
+                            potWinners.clear();
+                            potWinners.add(j);
+                        }                        
+                    }
+                }
+            }
+            // work out how much each winner gets
+            int numWinners = potWinners.size();
+            int toSplit = getTable().getPots()[i].getPot();
+            while (toSplit % numWinners != 0) {
+                toSplit -=  getTable().getSmallBlind();
+                leftover += getTable().getSmallBlind();
+            }
+            StringBuffer winningNames = new StringBuffer();
+            for (int j = 0; j < numWinners; j++) {
+                Player p = getPlayerFromTable(potWinners.get(j));
+                winningNames.append(p.getName());
+                if (j < numWinners - 1) {
+                    winningNames.append(", ");
+                }
+                p.addChips(toSplit / numWinners);
+            }
+            result.append(winningNames.toString() + " won " + (toSplit / numWinners) + " from pot " + (i + 1) + " with " + hands[potWinners.get(0)].toString() + ". ");
+        }
+        return result.toString();
     }
     
     public Table getTable() {
