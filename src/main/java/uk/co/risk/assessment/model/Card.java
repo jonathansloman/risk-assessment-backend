@@ -44,17 +44,21 @@ public class Card {
             case '9':
                 this.value = (int) (value - '0');
                 break;
-            case 'J':
+            case '0': // use 0 or T for ten to make life easier.
+            case 'T':
                 this.value = 10;
                 break;
-            case 'Q':
+            case 'J':
                 this.value = 11;
                 break;
-            case 'K':
+            case 'Q':
                 this.value = 12;
                 break;
-            case 'A':
+            case 'K':
                 this.value = 13;
+                break;
+            case 'A':
+                this.value = 14;
                 break;
             default:
                 LOG.warn("Invalid card value {}, defaulting to 2", value);

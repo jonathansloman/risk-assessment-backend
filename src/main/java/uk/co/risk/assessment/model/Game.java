@@ -1,7 +1,6 @@
 package uk.co.risk.assessment.model;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Random;
@@ -53,7 +52,7 @@ public class Game {
     
     // shorthand for a common check
     private boolean isActive(Player p) {
-        return p == null || p.isPaused() || p.isFolded();
+        return p != null && !p.isPaused() && !p.isFolded();
     }
     
     private Player getPlayerFromTable(int i) {
@@ -359,6 +358,8 @@ public class Game {
                     }
                     p.addChips(toSplit / numWinners);
                 }
+                // clear down pot for display
+                getTable().getPots()[i].setPot(0);
                 result.append(
                         winningNames.toString() + " won " + (toSplit / numWinners) + " from pot "
                                 + (i + 1) + " with " + hands[potWinners.get(0)].toString() + ". ");

@@ -136,6 +136,7 @@ public class PokerServer extends WebSocketServer {
                 String messageJson;
                 try {
                     messageJson = mapper.writeValueAsString(newMessage);
+                    LOG.info("Sending to player {} message {}", thisPlayer, messageJson);
                     con.send(messageJson);
                 } catch (JsonProcessingException e) {
                     LOG.error("Cannot convert message to json.", e);
