@@ -33,9 +33,11 @@ public class Player {
         chips += amount;
     }
     
+    // add a buyin. Automatically un-pause.
     public void buyIn() {
         buyIns++;
         chips += Table.BUYIN;
+        paused = false;
     }
     
     public void check() {

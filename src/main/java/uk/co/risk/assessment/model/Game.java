@@ -161,6 +161,17 @@ public class Game {
             }
             getTable().foldPlayer();
             return checkNextBetter(playerName, " folded.");
+        } else if ("buyin".equals(command)) {
+            Player player = playerDAO.getPlayer(playerName);
+            if (player.getChips() > getTable().getMinimumBuyin()) {
+                return playerName + " tried to buy in but has too many chips.";
+            }
+            if (getTable().getState() == TableState.PREDEAL || player.isPaused() || player.isFolded()) {
+                player.buyIn();
+                return playerName + " bought in.";
+            } else {
+                return playerName + " tried to buy in but is in a hand.";
+            }
         } else if (command.startsWith("setchips")) {
             // TODO for TESTING ONLY
             if (command.length() < 10) {
@@ -207,6 +218,15 @@ public class Game {
         return " Next to bet is: " + getPlayerFromTable(getTable().getNextToBet()).getName();
     }
     
+    private String finishHand() {
+        // work out who won what.
+        String finishText = findWinners();
+        getTable().setState(TableState.PREDEAL);
+        getTable().nextDealer();
+        getTable().setNextToBet(-1);
+        return finishText;
+    }
+    
     /*
      * checks if betting round has finished and if so advances to next stage of game. Returns outcome to be sent to players.
      */
@@ -215,8 +235,7 @@ public class Game {
             // tidy bets into pots
             getTable().endBettingRound();
             // work out who won what.
-            String finishText = findWinners();
-            getTable().setState(TableState.PREDEAL);
+            String finishText = finishHand();
             return playerName + actionResult + ". Hand finished. " + finishText;
         } else {
             boolean finishedRound = getTable().nextBetter();
@@ -228,8 +247,7 @@ public class Game {
                 getTable().endBettingRound();
                 // At this point, if everyone is all in, or all but one person are all in, we're actually finished
                 if (getTable().remainingActivePlayers(true) <= 1) {
-                    finishText = findWinners();
-                    getTable().setState(TableState.PREDEAL);
+                    finishText = finishHand();
                     return playerName + actionResult + ". Hand finished. " + finishText;
                 }
                 switch (getTable().getState()) {

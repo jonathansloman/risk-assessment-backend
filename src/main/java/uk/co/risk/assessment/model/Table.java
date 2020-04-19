@@ -22,6 +22,7 @@ public class Table {
     int lastRaise;
     int bigBlind = 10;
     int smallBlind = 5;
+    int minimumBuyin = 100;
     Card[] cards = new Card[5];
     TableState state = TableState.PREDEAL;
     int numPots = 0;
@@ -102,6 +103,7 @@ public class Table {
         cards = new Card[5];
         state = TableState.PREFLOP;
         pots[0].pot = leftover;
+        leftover = 0;
         for (int i = 0; i < MAX_PLAYERS; i++) {
             Player p = players[i];
             if (p != null && !p.isPaused()) {
@@ -115,12 +117,12 @@ public class Table {
         int smallBlindIndex = findNextPlayer(dealer);
         int bigBlindIndex = findNextPlayer(smallBlindIndex);
         nextToBet = findNextPlayer(bigBlindIndex);
+        initialisePots();
         processBlind(smallBlindIndex, smallBlind);
         processBlind(bigBlindIndex, bigBlind);
         
         currentBet = bigBlind;
         lastRaise = bigBlind;
-        initialisePots();
     }
     
     public boolean nextBetter() {
@@ -243,13 +245,6 @@ public class Table {
         Player p = players[nextToBet];
         betsToPots(p);
         p.setFolded(true);
-    }
-    
-    public String finishHand(int winner) {
-        // players[winner].addChips(mainPot);
-        nextDealer();
-        return players[winner].getName() + " won " + /* mainPot + */ " chips. Dealer is now "
-                + players[dealer].getName();
     }
     
     /* for each hand, we set up the possible required pots in advanced */
@@ -457,6 +452,14 @@ public class Table {
 
     public void setMaximumBet(int maximumBet) {
         this.maximumBet = maximumBet;
+    }
+
+    public int getMinimumBuyin() {
+        return minimumBuyin;
+    }
+
+    public void setMinimumBuyin(int minimumBuyin) {
+        this.minimumBuyin = minimumBuyin;
     }
 
     class Pot {
