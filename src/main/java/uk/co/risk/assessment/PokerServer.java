@@ -5,6 +5,7 @@ import java.net.InetSocketAddress;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Set;
+import java.nio.file.Paths;
 
 import org.java_websocket.WebSocket;
 import org.java_websocket.handshake.ClientHandshake;
@@ -14,6 +15,11 @@ import org.slf4j.LoggerFactory;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+
+import io.undertow.Undertow;
+import io.undertow.server.handlers.resource.PathResourceManager;
+
+import static io.undertow.Handlers.resource;
 
 import uk.co.risk.assessment.dao.PlayerDAO;
 import uk.co.risk.assessment.message.Message;
@@ -181,8 +187,11 @@ public class PokerServer extends WebSocketServer {
         } catch (NumberFormatException nfe) {
             port = 3001;
         }
-        LOG.info("Starting on port: " + port);
+        LOG.info("Starting websocket server on port: " + port);
         new PokerServer(port).start();
+        LOG.info("Starting undertow for static content on port 80");
+        Undertow server = Undertow.builder().addHttpListener(80, "0.0.0.0").setHandler(resource(new PathResourceManager(Paths.get("www"), 100))).build();
+        server.start();
     }
     
     @Override

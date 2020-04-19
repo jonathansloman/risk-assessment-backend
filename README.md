@@ -1,14 +1,11 @@
-[![Build Status](https://travis-ci.org/jasofalcon/chat-ws-java.svg?branch=master)](https://travis-ci.org/jasofalcon/chat-ws-java)
 
-# chat-ws-java
-Simple web socket chat server in Java, using WebSockets 
+# risk-assessment
+Web socket based texas holdem game
 
-# Demo
-Server is already running on Heroku, you can check the client by visiting https://jasofalcon.github.io/chat-ws-client/
+To create uberjar, run gradle target: shadowJar
 
-## Run
-Just fire up the ChatServer.java (::main) 
+To create docker image: docker build -t jsloman/riskassessment .
 
-## Run the client
-Use this client to connect with server - https://github.com/jasofalcon/chat-ws-client
+www contains client, built by npm run build on riskassessment-client project.
+
 
