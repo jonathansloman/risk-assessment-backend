@@ -141,6 +141,9 @@ public class Game {
             } catch (NumberFormatException e) {
                 return playerName + " invalid raise";
             }
+            if (amount % table.getSmallBlind() != 0) {
+                return playerName + " invalid raise, must be a multiple of small blind";
+            }
             Player p = getPlayerFromTable(getTable().getNextToBet());
             // allow for all in raise even if under raise limit.
             if (amount < getTable().getMinimumRaise() && amount != p.getChips() - p.totalBet()) {
