@@ -1,8 +1,5 @@
 plugins {
-    id 'maven-publish'
 //    id 'application'
-//    id 'com.palantir.docker' version '0.25.0'
-//    id 'com.github.johnrengelman.shadow' version '5.2.0'
     id 'nebula.ospackage' version '8.3.0'
     id 'java'
 }
@@ -25,22 +22,11 @@ group = 'uk.co.risk.assessment'
 version = '1.0.0'
 sourceCompatibility = '1.8'
 
-publishing {
-    publications {
-        maven(MavenPublication) {
-            from(components.java)
-        }
-    }
-}
-
 tasks.withType(JavaCompile) {
     options.encoding = 'UTF-8'
 }
 
 jar {
-    manifest {
-        attributes 'Main-Class': 'uk.co.risk.assessment.PokerServer'
-    }
     baseName = 'risk-assessment-backend'
     version = ''
 }
@@ -49,6 +35,7 @@ application {
 	mainClassName = 'uk.co.risk.assessment.PokerServer'
 }
 */
+
 task makeDeb(type: Deb) {
     packageName = "${project.name.toLowerCase()}"
     // We wanted our snapshots dated, but lexically ordered so a later snapshot will replace an earlier.
@@ -83,10 +70,16 @@ task makeDeb(type: Deb) {
     }
 
     from(jar.outputs.files) {
-        user 'root'
-        permissionGroup 'root'
         into "lib"
     }
+    
+    from(configurations.runtimeClasspath) { 
+    	into 'lib' 
+	}
+	
+	from ('www') {
+	  into "www"
+	}
 }
 
 task copyDebControlFiles(type: Copy) {
@@ -98,21 +91,5 @@ task copyDebControlFiles(type: Copy) {
 build.dependsOn makeDeb
 makeDeb.dependsOn assemble
 makeDeb.dependsOn copyDebControlFiles
-/*
-docker {
-    name "nexus.jupiter.bbc.co.uk:8084/${project.name}"
-    tags "${packageVersion}", "latest"
-    dockerfile file('Dockerfile')
-    dependsOn build
-    files bootJar
-    noCache
-}
 
-dockerRun {
-    name "${project.name}"
-    image "nexus.jupiter.bbc.co.uk:8084/${project.name}"
-    ports '3000:3000'
-    daemonize true
-}
-*/
 
