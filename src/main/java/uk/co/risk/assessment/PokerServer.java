@@ -189,8 +189,8 @@ public class PokerServer extends WebSocketServer {
         }
         LOG.info("Starting websocket server on port: " + port);
         new PokerServer(port).start();
-        LOG.info("Starting undertow for static content on port 80");
-        Undertow server = Undertow.builder().addHttpListener(80, "0.0.0.0").setHandler(resource(new PathResourceManager(Paths.get("www"), 100))).build();
+        LOG.info("Starting undertow for static content on port 8080");
+        Undertow server = Undertow.builder().addHttpListener(8080, "0.0.0.0").setHandler(resource(new PathResourceManager(Paths.get("www"), 100))).build();
         server.start();
     }
     

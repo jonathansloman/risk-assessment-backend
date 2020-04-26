@@ -1,0 +1,7 @@
+This directory contains configuration for running the agent under
+supervisor. On package install it will be copied from here into 
+  /etc/supervisor/conf.d 
+and named with the version.
+
+It may be desired to change the value of the "numprocs" supervisor
+attribute  to specify how many instances to run. 

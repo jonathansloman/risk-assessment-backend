@@ -1,0 +1,7 @@
+# Delete the link to our supervisor configuration file
+rm -f /etc/supervisor/conf.d/${project.name}.conf
+
+# update supervisor to stop the processes whose configuration we just removed.
+supervisorctl update
+
+echo "${project.name}-${project.version} stopped and removed."

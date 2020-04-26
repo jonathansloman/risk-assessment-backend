@@ -1,0 +1,9 @@
+mkdir -p /var/log/${project.name}
+
+# Link our supervisor configuration into supervisor's directory
+ln -sf /opt/${project.name}/supervisor-conf/supervisor.conf /etc/supervisor/conf.d/${project.name}.conf
+
+# get supervisor to reread the configuration and start our new configurations
+supervisorctl update
+
+echo "${project.name}-${project.version} installed and started"

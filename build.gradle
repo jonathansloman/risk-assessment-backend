@@ -1,8 +1,9 @@
 plugins {
     id 'maven-publish'
-    id 'application'
-    id 'com.palantir.docker' version '0.25.0'
-    id 'com.github.johnrengelman.shadow' version '5.2.0'
+//    id 'application'
+//    id 'com.palantir.docker' version '0.25.0'
+//    id 'com.github.johnrengelman.shadow' version '5.2.0'
+    id 'nebula.ospackage' version '8.3.0'
     id 'java'
 }
 
@@ -21,7 +22,7 @@ dependencies {
 }
 
 group = 'uk.co.risk.assessment'
-version = null
+version = '1.0.0'
 sourceCompatibility = '1.8'
 
 publishing {
@@ -40,11 +41,63 @@ jar {
     manifest {
         attributes 'Main-Class': 'uk.co.risk.assessment.PokerServer'
     }
+    baseName = 'risk-assessment-backend'
+    version = ''
 }
-
+/*
 application {
 	mainClassName = 'uk.co.risk.assessment.PokerServer'
 }
+*/
+task makeDeb(type: Deb) {
+    packageName = "${project.name.toLowerCase()}"
+    // We wanted our snapshots dated, but lexically ordered so a later snapshot will replace an earlier.
+    // Note that we replace the '-' with a '~' to ensure snapshot versions sort
+    // earlier than non-snapshots.
+    if (project.version.contains("SNAPSHOT")) {
+        version = project.version.replace("-SNAPSHOT", "~SNAPSHOT+" + new Date().format( 'yyyy.MM.dd.HH.mm' ))
+    }
+
+    summary = project.description
+    maintainer = 'Jonathan Sloman <jonathans2@gmail.com>'
+    epoch = 0
+
+    packageDescription = ''
+    packageGroup = 'contrib/misc'
+    priority = 'optional'
+    requires('default-jre-headless')
+    requires('supervisor')
+   
+    arch = 'all'
+
+    postInstall file('build/deb-control/postinst')
+    preUninstall file('build/deb-control/prerm')
+
+    into "/opt/${project.name}"
+
+    from('src/deb/supervisor-conf') {
+        expand project.properties
+        user 'root'
+        permissionGroup 'root'
+        into "supervisor-conf"
+    }
+
+    from(jar.outputs.files) {
+        user 'root'
+        permissionGroup 'root'
+        into "lib"
+    }
+}
+
+task copyDebControlFiles(type: Copy) {
+    from 'src/deb/control'
+    into 'build/deb-control'
+    expand(project.properties)
+}
+
+build.dependsOn makeDeb
+makeDeb.dependsOn assemble
+makeDeb.dependsOn copyDebControlFiles
 /*
 docker {
     name "nexus.jupiter.bbc.co.uk:8084/${project.name}"
