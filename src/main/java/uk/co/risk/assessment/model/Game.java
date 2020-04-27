@@ -84,7 +84,8 @@ public class Game {
     
     /* deal with player input */
     public synchronized String handleCommand(String playerName, String command) {
-        if ("sit".equals(command)) {
+        String lowerCommand = command.toLowerCase();
+        if ("sit".equals(lowerCommand)) {
             if (getTable().countPlayers() < Table.MAX_PLAYERS && !getTable().isSeated(playerName)) {
                 Player player = playerDAO.getPlayer(playerName);
                 if (player == null) {
@@ -96,7 +97,7 @@ public class Game {
             } else {
                 return playerName + " could not sit, no space or already seated.";
             }
-        } else if ("deal".equals(command)) {
+        } else if ("deal".equals(lowerCommand)) {
             if (getTable().getState() != TableState.PREDEAL) {
                 return playerName + " tried to deal, game in progress!";
             }
@@ -111,14 +112,14 @@ public class Game {
                     return playerName + " dealt." + getNextToBet();
                 }
             }
-        } else if ("call".equals(command)) {
+        } else if ("call".equals(lowerCommand)) {
             if (!getTable().isNextToBet(playerName)) {
                 return playerName + " tried to bet out of turn!";
             }
             // TODO handle affordability/split pots
             String result = getTable().call(getPlayerFromTable(getTable().getNextToBet()));
             return checkNextBetter(playerName, result);
-        } else if ("check".equals(command)) {
+        } else if ("check".equals(lowerCommand)) {
             if (!getTable().isNextToBet(playerName)) {
                 return playerName + " tried to bet out of turn!";
             }
@@ -128,7 +129,7 @@ public class Game {
             }
             getPlayerFromTable(getTable().getNextToBet()).check();
             return checkNextBetter(playerName, " checked.");
-        } else if (command.startsWith("raise ")) {
+        } else if (lowerCommand.startsWith("raise ")) {
             if (!getTable().isNextToBet(playerName)) {
                 return playerName + " tried to bet out of turn!";
             }
@@ -158,13 +159,13 @@ public class Game {
             getTable().setCurrentBet(amount);
             return checkNextBetter(playerName, result);
             
-        } else if ("fold".equals(command)) {
+        } else if ("fold".equals(lowerCommand)) {
             if (!getTable().isNextToBet(playerName)) {
                 return playerName + " tried to fold out of turn!";
             }
             getTable().foldPlayer();
             return checkNextBetter(playerName, " folded.");
-        } else if ("buyin".equals(command)) {
+        } else if ("buyin".equals(lowerCommand)) {
             Player player = playerDAO.getPlayer(playerName);
             if (player.getChips() > getTable().getMinimumBuyin()) {
                 return playerName + " tried to buy in but has too many chips.";
@@ -175,7 +176,7 @@ public class Game {
             } else {
                 return playerName + " tried to buy in but is in a hand.";
             }
-        } else if (command.startsWith("setchips")) {
+        } else if (lowerCommand.startsWith("setchips")) {
             // TODO for TESTING ONLY
             if (command.length() < 10) {
                 return playerName + " invalid setchips";
@@ -189,7 +190,7 @@ public class Game {
             Player player = playerDAO.getPlayer(playerName);
             player.setChips(amount);
             return playerName = " set their chips to: " + amount;
-        } else if (command.startsWith("sethand")) {
+        } else if (lowerCommand.startsWith("sethand")) {
             // TODO for TESTING ONLY
             if (command.length() != 12) {
                 return playerName + " invalid sethand";

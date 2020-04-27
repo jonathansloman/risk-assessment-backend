@@ -1,5 +1,5 @@
 plugins {
-//    id 'application'
+    id 'application'
     id 'nebula.ospackage' version '8.3.0'
     id 'java'
 }
@@ -30,11 +30,11 @@ jar {
     baseName = 'risk-assessment-backend'
     version = ''
 }
-/*
+
 application {
 	mainClassName = 'uk.co.risk.assessment.PokerServer'
 }
-*/
+
 
 task makeDeb(type: Deb) {
     packageName = "${project.name.toLowerCase()}"
