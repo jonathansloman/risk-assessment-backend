@@ -116,8 +116,6 @@ public class PokerServer extends WebSocketServer {
         }
     }
     
-
-    
     @Override
     public void onError(WebSocket conn, Exception ex) {
         
@@ -127,6 +125,7 @@ public class PokerServer extends WebSocketServer {
             conns.remove(conn);
         } else {
             LOG.error("Error with null connection", ex);
+            System.exit(-1);
         }
     }
     
@@ -169,8 +168,15 @@ public class PokerServer extends WebSocketServer {
     
     private void removePlayer(WebSocket conn) throws JsonProcessingException {
         String playerName = players.get(conn);
+        Player p = playerDAO.getPlayer(playerName);
+        String ret;
+        if (p != null && game.getTable().locatePlayer(playerName) != -1) {
+            ret = game.playerLeft(playerName);
+        } else {
+            ret = "Left game";
+        }
         players.remove(conn);
-        updateGameState(playerName, "Left game");
+        updateGameState(playerName, ret);
     }
     
     private void acknowledgePlayerJoined(Player player, WebSocket conn)
@@ -187,11 +193,16 @@ public class PokerServer extends WebSocketServer {
         } catch (NumberFormatException nfe) {
             port = 3001;
         }
-        LOG.info("Starting websocket server on port: " + port);
-        new PokerServer(port).start();
-        LOG.info("Starting undertow for static content on port 8080");
-        Undertow server = Undertow.builder().addHttpListener(8080, "0.0.0.0").setHandler(resource(new PathResourceManager(Paths.get("www"), 100))).build();
-        server.start();
+        try {
+            LOG.info("Starting websocket server on port: " + port);
+            new PokerServer(port).start();
+            LOG.info("Starting undertow for static content on port 8080");
+            Undertow server = Undertow.builder().addHttpListener(8080, "0.0.0.0").setHandler(resource(new PathResourceManager(Paths.get("www"), 100))).build();
+            server.start();
+        } catch (Exception e) {
+            LOG.error("Failed to start up, exiting", e);
+            System.exit(-1);
+        }
     }
     
     @Override

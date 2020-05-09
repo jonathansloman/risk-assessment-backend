@@ -11,7 +11,7 @@ import org.slf4j.LoggerFactory;
  */
 public class Table {
     private static final Logger LOG = LoggerFactory.getLogger(Table.class);
-
+    
     public final static int MAX_PLAYERS = 10;
     public final static int BUYIN = 500;
     
@@ -91,7 +91,7 @@ public class Table {
         int count = 0;
         for (int i = 0; i < MAX_PLAYERS; i++) {
             Player p = players[i];
-            if (p != null && !p.isPaused() && !p.isFolded() && (!countAllIn  || !p.isAllIn())) {
+            if (p != null && !p.isPaused() && !p.isFolded() && (!countAllIn || !p.isAllIn())) {
                 count++;
             }
         }
@@ -154,6 +154,15 @@ public class Table {
         return -1;
     }
     
+    public int locatePlayer(Player p) {
+        for (int i = 0; i < MAX_PLAYERS; i++) {
+            if (p == players[i]) {
+                return i;
+            }
+        }
+        return -1;
+    }
+    
     // this is only used for blinds, so always in main pot
     private void processBlind(int player, int amount) {
         players[player].makeBet(0, amount);
@@ -175,22 +184,19 @@ public class Table {
             if (players[i] == null) {
                 players[i] = p;
                 // TODO may be returning player who already has chips
-                p.buyIn();
+                if (p.getChips() == 0) {
+                    p.buyIn();
+                }
                 if (dealer < 0) {
                     dealer = i;
+                }
+                /* if we've joined midway through a hand, set us as folded */
+                if (getState() != TableState.PREDEAL) {
+                    p.setFolded(true);
                 }
                 break;
             }
         }
-    }
-    
-    public boolean isSeated(String playerName) {
-        for (int i = 0; i < MAX_PLAYERS; i++) {
-            if (players[i] != null && players[i].getName().equals(playerName)) {
-                return true;
-            }
-        }
-        return false;
     }
     
     public boolean isDealer(String playerName) {
@@ -220,7 +226,7 @@ public class Table {
         }
     }
     
-    private void betsToPots(Player p) {
+    public void betsToPots(Player p) {
         for (int j = 0; j < MAX_PLAYERS; j++) {
             pots[j].pot += p.getBets()[j];
             p.setBet(j, 0);
@@ -245,6 +251,14 @@ public class Table {
         Player p = players[nextToBet];
         betsToPots(p);
         p.setFolded(true);
+    }
+    
+    public void removePlayer(String playerName) {
+        int i = locatePlayer(playerName);
+        if (i != -1) {
+            players[i] = null;
+        }
+        
     }
     
     /* for each hand, we set up the possible required pots in advanced */
@@ -317,7 +331,7 @@ public class Table {
                 amount -= toFillPot;
                 LOG.info("Filling pot {} with bet amount {} leaving {}", i, toFillPot, amount);
             }
-        }      
+        }
     }
     
     public String call(Player p) {
@@ -336,7 +350,7 @@ public class Table {
         }
     }
     
-    public String raise(Player p, int amount ) {
+    public String raise(Player p, int amount) {
         if (amount + potLevel > maximumBet) {
             amount = maximumBet - potLevel;
             p.setAllIn(true);
@@ -433,35 +447,35 @@ public class Table {
     public int getNumPots() {
         return numPots;
     }
-
+    
     public void setNumPots(int numPots) {
         this.numPots = numPots;
     }
-
+    
     public int getPotLevel() {
         return potLevel;
     }
-
+    
     public void setPotLevel(int potLevel) {
         this.potLevel = potLevel;
     }
-
+    
     public int getMaximumBet() {
         return maximumBet;
     }
-
+    
     public void setMaximumBet(int maximumBet) {
         this.maximumBet = maximumBet;
     }
-
+    
     public int getMinimumBuyin() {
         return minimumBuyin;
     }
-
+    
     public void setMinimumBuyin(int minimumBuyin) {
         this.minimumBuyin = minimumBuyin;
     }
-
+    
     class Pot {
         int pot;
         /* maximum bet that can go into this pot, determined by still-in player with fewest chips */
@@ -469,26 +483,29 @@ public class Table {
         /* true for players who are involved in this pot */
         boolean[] players = new boolean[MAX_PLAYERS];
         
-        
         public int getPot() {
             return pot;
         }
+        
         public void setPot(int pot) {
             this.pot = pot;
         }
+        
         public int getBetLimit() {
             return betLimit;
         }
+        
         public void setBetLimit(int betLimit) {
             this.betLimit = betLimit;
         }
+        
         public boolean[] getPlayers() {
             return players;
         }
+        
         public void setPlayers(boolean[] players) {
             this.players = players;
         }
-        
         
     }
 }

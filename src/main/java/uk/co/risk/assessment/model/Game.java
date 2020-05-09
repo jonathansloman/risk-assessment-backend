@@ -86,7 +86,8 @@ public class Game {
     public synchronized String handleCommand(String playerName, String command) {
         String lowerCommand = command.toLowerCase();
         if ("sit".equals(lowerCommand)) {
-            if (getTable().countPlayers() < Table.MAX_PLAYERS && !getTable().isSeated(playerName)) {
+            if (getTable().countPlayers() < Table.MAX_PLAYERS
+                    && getTable().locatePlayer(playerName) == -1) {
                 Player player = playerDAO.getPlayer(playerName);
                 if (player == null) {
                     LOG.warn("Couldn't find player {} - panic!", playerName);
@@ -170,7 +171,8 @@ public class Game {
             if (player.getChips() > getTable().getMinimumBuyin()) {
                 return playerName + " tried to buy in but has too many chips.";
             }
-            if (getTable().getState() == TableState.PREDEAL || player.isPaused() || player.isFolded()) {
+            if (getTable().getState() == TableState.PREDEAL || player.isPaused()
+                    || player.isFolded()) {
                 player.buyIn();
                 return playerName + " bought in.";
             } else {
@@ -412,6 +414,46 @@ public class Game {
     
     public void setHands(Card[][] hands) {
         this.playerCards = hands;
+    }
+    
+    // if someone's connection drops, for now we just fold them if needed and they leave the game
+    public String playerLeft(String playerName) {
+        String ret;
+        switch (getTable().getState()) {
+            case PREDEAL:
+                if (getTable().isDealer(playerName)) {
+                    if (getTable().countActivePlayers() > 1) {
+                        getTable().nextDealer();
+                    } else {
+                        getTable().setDealer(-1);
+                    }
+                    ret = playerName + " was dealer and disconnected, selecting new dealer";
+                } else {
+                    ret = playerName + " left the game";
+                }
+                break;
+            case FLOP:
+            case PREFLOP:
+            case RIVER:
+            case TURN:
+            default:
+                if (getTable().isNextToBet(playerName)) {
+                    getTable().foldPlayer();
+                    ret = checkNextBetter(playerName, " folded due to disconnect.");
+                } else {
+                    Player p = getTable().getPlayers()[getTable().locatePlayer(playerName)];
+                    if (p.isFolded() || p.isPaused()) {
+                        ret = playerName + " disconnected and left the game";
+                    } else {
+                        getTable().betsToPots(p);
+                        p.setFolded(true);
+                        ret = playerName + " folded out of turn due to disconnect";
+                    }
+                }
+                break;
+        }
+        getTable().removePlayer(playerName);
+        return ret;
     }
     
 }
