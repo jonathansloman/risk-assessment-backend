@@ -130,16 +130,20 @@ public class Game {
             }
             getPlayerFromTable(getTable().getNextToBet()).check();
             return checkNextBetter(playerName, " checked.");
-        } else if (lowerCommand.startsWith("raise ")) {
+        } else if (lowerCommand.startsWith("raise ") || lowerCommand.startsWith("bet ")) {
+            int length = 6;
+            if (lowerCommand.startsWith("bet")) {
+                length = 4;
+            }
             if (!getTable().isNextToBet(playerName)) {
                 return playerName + " tried to bet out of turn!";
             }
-            if (command.length() < 7) {
+            if (command.length() <= length) {
                 return playerName + " invalid raise";
             }
             int amount;
             try {
-                amount = Integer.parseInt(command.substring(6));
+                amount = Integer.parseInt(command.substring(length));
             } catch (NumberFormatException e) {
                 return playerName + " invalid raise";
             }
