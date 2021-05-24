@@ -67,12 +67,13 @@ public class PokerServer extends WebSocketServer {
             LOG.warn("Error removing user: ", e);
         }
         
-        LOG.info("Connection closed to: {}, {} ", conn.getRemoteSocketAddress().getHostString(),
-                conn.getRemoteSocketAddress().getAddress().getHostAddress());
+        LOG.info("Connection closed to: {} ", conn.getRemoteSocketAddress() == null ? "no connection" : conn.getRemoteSocketAddress().getHostString()
+              /*  conn.getRemoteSocketAddress().getAddress().getHostAddress()*/);
     }
     
     @Override
     public void onMessage(WebSocket conn, String message) {
+        LOG.info("In onMessage, got: {}", message);
         try {
             Message msg = mapper.readValue(message, Message.class);
             switch (msg.getType()) {
@@ -83,7 +84,6 @@ public class PokerServer extends WebSocketServer {
                         LOG.warn("Failed to join new player, bad password?");
                         Message m = new Message(MessageType.PLAYER_BADPASSWORD);
                         sendMessage(m, conn);
-                        conn.close();
                     } else {
                         /* check for existing players with the same name and disconnect them */
                         for (WebSocket otherCon : conns) {
@@ -121,7 +121,8 @@ public class PokerServer extends WebSocketServer {
         
         if (conn != null) {
             LOG.error("Error on connection {}",
-                    conn.getRemoteSocketAddress().getAddress().getHostAddress(), ex);
+                    (conn != null && conn.getRemoteSocketAddress() != null && conn.getRemoteSocketAddress().getAddress() != null) ? 
+                            conn.getRemoteSocketAddress().getAddress().getHostAddress() : "no address", ex);
             conns.remove(conn);
         } else {
             LOG.error("Error with null connection", ex);
@@ -196,8 +197,8 @@ public class PokerServer extends WebSocketServer {
         try {
             LOG.info("Starting websocket server on port: " + port);
             new PokerServer(port).start();
-            LOG.info("Starting undertow for static content on port 8080");
-            Undertow server = Undertow.builder().addHttpListener(8080, "0.0.0.0").setHandler(resource(new PathResourceManager(Paths.get("www"), 100))).build();
+            LOG.info("Starting undertow for static content on port 8081");
+            Undertow server = Undertow.builder().addHttpListener(8081, "0.0.0.0").setHandler(resource(new PathResourceManager(Paths.get("www"), 100))).build();
             server.start();
         } catch (Exception e) {
             LOG.error("Failed to start up, exiting", e);
